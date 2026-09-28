@@ -1,0 +1,5 @@
+- insert:
+    - id: dsh-seo-geo-workbench
+      name: dsh-seo-geo-workbench
+      config:
+        root: !!js dshHomePath('seo-geo-data')

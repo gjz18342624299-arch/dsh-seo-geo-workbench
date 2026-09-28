@@ -1,0 +1,20 @@
+# 本机部署状态（含本机绝对路径），不进公开仓库
+deployment.json
+
+# 一次性调试残留
+*.bak
+/0)console.log(i
+/80
+
+# 绑定本机业务状态/备份路径的一次性探测脚本，对公开仓库无意义
+/test/cf-query-probe.mjs
+/test/cf-rum-probe.mjs
+/test/cf-live-sync-probe.mjs
+/test/extract-old-chat.mjs
+
+# 测试运行期生成的隔离数据目录
+/qa-market/
+/qa-market-browser/
+
+# 常规依赖目录（本仓库使用 vendor/ 固定开发依赖）
+node_modules/

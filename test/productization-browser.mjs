@@ -1,0 +1,15 @@
+import fs from 'node:fs/promises';import {fileURLToPath} from 'node:url';import {createServer} from 'node:http';
+import {build} from '../vendor/node_modules/esbuild/lib/main.js';import {chromium} from '../vendor/node_modules/playwright-core/index.mjs';import {initialState} from '../analysis.js';
+const qa=new URL('../../qa-v013/browser/',import.meta.url);await fs.mkdir(qa,{recursive:true});
+const source=(await fs.readFile(new URL('../client.js',import.meta.url),'utf8')).replace('return {App,call};','globalThis.qaApp=App; return {App,call};');
+const entry=`import React from ${JSON.stringify(fileURLToPath(new URL('../vendor/node_modules/react/index.js',import.meta.url)))};import {createRoot} from ${JSON.stringify(fileURLToPath(new URL('../vendor/node_modules/react-dom/client.js',import.meta.url)))};
+window.__ModuleLoader__={load(m){const p=m.factory(n=>React);p.apply({effect:()=>{},inject:()=>{},slots:{}});}};
+${source}
+createRoot(document.getElementById('root')).render(React.createElement(globalThis.qaApp,{runtime:null,onClose:()=>{}}));`;
+await build({stdin:{contents:entry,resolveDir:fileURLToPath(new URL('../',import.meta.url)),loader:'js'},bundle:true,format:'iife',outfile:fileURLToPath(new URL('app.js',qa))});
+const fixture=initialState();fixture.credStatus={};
+const server=createServer(async(req,res)=>{if(req.url==='/app.js'){res.setHeader('Content-Type','text/javascript');res.end(await fs.readFile(new URL('app.js',qa)));}else if(req.url?.includes('/api/')){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(fixture));}else{res.setHeader('Content-Type','text/html');res.end('<html><meta charset="utf-8"><div id="root"></div><script src="/app.js"></script></html>');}});await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+try{await page.goto(`http://127.0.0.1:${server.address().port}`);await page.getByText('安装浏览器扩展',{exact:true}).waitFor();await page.screenshot({path:fileURLToPath(new URL('onboarding.png',qa)),fullPage:true});await page.getByLabel('使用的浏览器',{exact:true}).selectOption('other');await page.getByText('Firefox 和 Safari 暂不支持自动采集扩展。可以导入已有回答继续分析，无需更换日常浏览器。',{exact:true}).waitFor();
+await page.getByRole('button',{name:'总览',exact:true}).click();await page.getByLabel('公司名称',{exact:true}).fill('示例公司');await page.reload();await page.getByRole('button',{name:'总览',exact:true}).click();if(await page.getByLabel('公司名称',{exact:true}).inputValue()!=='示例公司')throw Error('draft lost');
+await page.getByRole('button',{name:'平台与采集',exact:true}).click();await page.getByLabel('问题集',{exact:true}).fill('示例产品有什么特点？');await page.screenshot({path:fileURLToPath(new URL('collect.png',qa)),fullPage:true});if(errors.length)throw Error(errors.join('\n'));console.log('Browser UI verified: onboarding, unsupported browser fallback, draft restore, collection page.');}finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

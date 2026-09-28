@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir,writeFile,readFile,access} from 'node:fs/promises';
+import {resolve,join} from 'node:path';
+import {spawnSync} from 'node:child_process';
+const release=process.env.SEO_GEO_TEST_RELEASE;
+test('portable installer: fresh install, upgrade preserves data config and unrelated bundles',{skip:!release},async()=>{
+ const qa=resolve('..','qa-portable');await mkdir(qa,{recursive:true});const profile=await mkdtemp(join(qa,'profile-'));
+ const initial={name:'test-profile',dependencies:{unrelated:'1.0.0'},dsh:{profile:{bundles:['unrelated']}}};
+ await writeFile(join(profile,'package.json'),JSON.stringify(initial));
+ const run=()=>spawnSync(process.execPath,[join(release,'install-portable.mjs')],{encoding:'utf8',env:{...process.env,DSH_PROFILE_DIR:profile,DSH_BUNDLED_MODULES:'D:/DSH/DSH Desktop/resources/app.asar.unpacked/node_modules'}});
+ let result=run();assert.equal(result.status,0,result.stderr);
+ const target=join(profile,'node_modules/dsh-seo-geo-workbench');
+ await access(join(target,'chrome-extension/manifest.json'));
+ await assert.rejects(access(join(target,'deployment.json')));
+ const pkg=JSON.parse(await readFile(join(profile,'package.json'),'utf8'));
+ assert.deepEqual(pkg.dsh.profile.bundles,['unrelated','dsh-seo-geo-workbench']);
+ assert.equal(pkg.dependencies.unrelated,'1.0.0');
+ assert.equal(pkg.dependencies['dsh-seo-geo-workbench'],'file:'+target.replaceAll('\\','/'));
+ await writeFile(join(target,'deployment.json'),JSON.stringify({projectRoot:'test-user-data'}));
+ result=run();assert.equal(result.status,0,result.stderr);
+ assert.equal(JSON.parse(await readFile(join(target,'deployment.json'),'utf8')).projectRoot,'test-user-data');
+ assert.deepEqual(JSON.parse(await readFile(join(profile,'package.json'),'utf8')).dsh.profile.bundles,pkg.dsh.profile.bundles);
+});

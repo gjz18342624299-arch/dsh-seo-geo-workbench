@@ -1,0 +1,26 @@
+{
+ "manifest_version": 3,
+ "name": "DSH SEO GEO · 浏览器连接",
+ "version": "0.5.11",
+ "description": "连接本机 DSH 工作台，在此浏览器个人资料下操作工作台专用标签页。",
+ "permissions": [
+  "storage",
+  "scripting",
+  "tabs",
+  "alarms"
+ ],
+ "host_permissions": [
+  "http://127.0.0.1/*"
+ ],
+ "optional_host_permissions": [
+  "<all_urls>"
+ ],
+ "background": {
+  "service_worker": "background.js",
+  "type": "module"
+ },
+ "action": {
+  "default_popup": "popup.html",
+  "default_title": "连接 DSH 工作台"
+ }
+}

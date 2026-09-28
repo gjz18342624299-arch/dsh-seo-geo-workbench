@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+global.window={__ModuleLoader__:{load(m){global.__clientModule=m;}}};
+await import('../client.js');
+const react={createElement:()=>null,useState:()=>[],useEffect:()=>{},useRef:()=>({})};
+const plugin=global.__clientModule.factory(name=>{assert.equal(name,'react');return react;});
+const registered=[],cleanups=[];
+global.document={createElement:()=>({remove(){},textContent:''}),head:{appendChild(){}}};
+plugin.apply({effect:fn=>cleanups.push(fn()),desktopWorkbenches:{register:(descriptor,Panel)=>{registered.push({descriptor,Panel});return()=>registered.pop();}},remote:{},sessions:{},workspaces:{},uiWorkspace:{}});
+assert.equal(registered.length,1);
+assert.equal(registered[0].descriptor.id,undefined);
+assert.equal(registered[0].descriptor.repository,'https://github.com/gjz18342624299-arch/dsh-seo-geo-workbench');
+assert.equal(registered[0].descriptor.customFrame,true);
+assert.equal(typeof registered[0].Panel,'function');
+assert.ok(plugin.inject.includes('desktopWorkbenches'));
+for(const cleanup of cleanups.reverse())cleanup?.();
+assert.equal(registered.length,0);
+console.log('PASS: official workbench registration and HMR disposal; no sidebar or overlay slots.');

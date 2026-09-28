@@ -1,0 +1,72 @@
+{
+  "name": "dsh-seo-geo-workbench",
+  "version": "0.14.1",
+  "description": "DSH SEO/GEO monitoring workbench with official web sampling tasks",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "dsh-desktop-workbenches",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-workspace"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "@deepseek-ai/dsh-settings": ">=0.1.5-rc.2 <0.1.6-0 || >=0.1.6-alpha.2 <0.1.7-0 || >=0.1.7-rc.1 <0.2.0-0",
+    "@deepseek-ai/dsh-llm": ">=0.1.5-rc.2 <0.1.6-0 || >=0.1.6-alpha.2 <0.1.7-0 || >=0.1.7-rc.1 <0.2.0-0",
+    "@deepseek-ai/dsh-tools": ">=0.1.5-rc.2 <0.1.6-0 || >=0.1.6-alpha.2 <0.1.7-0 || >=0.1.7-rc.1 <0.2.0-0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "build": "node build.mjs",
+    "pack:check": "node verify-package.mjs"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gjz18342624299-arch/dsh-seo-geo-workbench.git"
+  },
+  "author": "gjz18342624299-arch",
+  "files": [
+    "index.js",
+    "client.js",
+    "core.js",
+    "analysis.js",
+    "entity-judge.js",
+    "store.js",
+    "seo-reports.js",
+    "seo-jobs.js",
+    "seo-report-reader.js",
+    "syncers.js",
+    "collector.js",
+    "chrome-bridge.js",
+    "server.js",
+    "question-jobs.js",
+    "data-root.js",
+    "cordis.patch.yml",
+    "chrome-extension/",
+    "README.md",
+    "LICENSE",
+    "docs/report-format.md"
+  ],
+  "dependencies": {
+    "xlsx": "0.18.5",
+    "playwright-core": "1.58.2"
+  }
+}
