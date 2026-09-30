@@ -4,6 +4,7 @@ import {randomUUID} from 'node:crypto';
 export class QuestionJobs {
   constructor(store, complete) { this.store=store; this.complete=complete; this.running=false; }
   async recover() {
+    if((await this.store.read()).questionJob?.status!=='running')return;
     await this.store.mutate(s=>{if(s.questionJob?.status==='running')s.questionJob={...s.questionJob,status:'interrupted',error:'DSH 已重启，上次生成中断。草稿已保留，可重新生成。'};});
   }
   async start({prompt,selection}={}) {

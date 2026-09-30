@@ -1,7 +1,24 @@
 import {readFile,stat} from 'node:fs/promises';
 import {join,isAbsolute} from 'node:path';
-import {analyse} from './analysis.js';
+import {analyse,publicUrl} from './analysis.js';
 import {syncBing,syncCloudflare,syncGsc} from './syncers.js';
+// 动作记录「粘贴链接自动抓标题」：公网 HTTPS 校验后抓取，8 秒超时、只读前 64KB，提取 <title>；任何失败都返回空串而不报错。
+async function fetchTitle(value){
+ try{
+  const url=publicUrl(String(value||''));
+  const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),8000);
+  try{
+   const r=await fetch(url,{signal:ctrl.signal,redirect:'follow',headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) DSH-SEO-GEO-Workbench','Accept':'text/html,application/xhtml+xml'}});
+   if(!r.ok||!r.body)return {title:''};
+   const reader=r.body.getReader();const chunks=[];let size=0;
+   while(size<65536){const {done,value:chunk}=await reader.read();if(done)break;chunks.push(chunk);size+=chunk.length;}
+   try{await reader.cancel();}catch{}
+   const text=Buffer.concat(chunks).toString('utf8');
+   const m=text.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+   return {title:m?m[1].replace(/\s+/g,' ').trim().slice(0,120):''};
+  }finally{clearTimeout(timer);}
+ }catch{return {title:''};}
+}
 export function createHandler(store,collector,assets,configureSession,judge,questions,seoJobs){
  return async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
@@ -31,9 +48,10 @@ export function createHandler(store,collector,assets,configureSession,judge,ques
    else if(op==='cf-sync')value=await syncCloudflare(store);
     else if(op==='gsc-sync')value=await syncGsc(store);
     else if(op==='platform-test'){const s=await store.read();const p=s.platforms.find(p=>p.id===a.id);if(!p)throw Error('平台不存在');if(!p.enabled)throw Error('平台已停用，请先启用');if(collector.status().batchIds.length)throw Error('正在批量采集，请先停止后再自检');value=await collector.testPlatform(p);}
-   else if(op==='action'){value=await store.action(a);if(/^sample\.(verify|verifyMany|entityAuto)$/.test(a?.type||''))judge?.kick();}
+   else if(op==='action'){if(a?.type==='action.retest.cancel'){const s=await store.read(),batchId=s.actionStates?.[a.key]?.retestBatchId;if(batchId)await collector.stopBatch(batchId);}value=await store.action(a);if(/^sample\.(verify|verifyMany|entityAuto)$/.test(a?.type||''))judge?.kick();}
     else if(op==='entity-judge-status')value=judge?judge.status():{disabled:true};
     else if(op==='entity-judge-run'){if(!judge)throw Error('主体判定服务未启用');value=await judge.run();}
+   else if(op==='fetch-title')value=await fetchTitle(a.url);
    else if(op==='preview')value=await store.preview(a);
    else if(op==='commit'){value=await store.commit(a);judge?.kick();}
    else if(op==='analysis')value=analyse(await store.read(),a);

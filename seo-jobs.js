@@ -1,6 +1,6 @@
 export class SeoJobs {
  constructor(store,complete){this.store=store;this.complete=complete;this.active=new Map();}
- async recover(){await this.store.mutate(s=>{for(const r of s.reports||[])if(r.analysisJob?.status==='running')r.analysisJob={...r.analysisJob,status:'failed',error:'应用重启导致分析中断，请重试。'};});}
+ async recover(){if(!(await this.store.read()).reports?.some(r=>r.analysisJob?.status==='running'))return;await this.store.mutate(s=>{for(const r of s.reports||[])if(r.analysisJob?.status==='running')r.analysisJob={...r.analysisJob,status:'failed',error:'应用重启导致分析中断，请重试。'};});}
  async status(id){const base=await this.store.seoSaved(id);return {job:base.analysisJob||null,report:base.analysisJob?.resultId?await this.store.seoSaved(base.analysisJob.resultId):base};}
  async start({id,selection}){
   if(this.active.has(id))return this.status(id);

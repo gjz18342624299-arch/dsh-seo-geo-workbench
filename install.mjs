@@ -7,21 +7,30 @@ const backup=join(project,'work','install-v3-backup-'+Date.now());await mkdir(ba
 if(await exists(target))await cp(target,join(backup,'installed-workbench'),{recursive:true,filter:sourcePath=>sourcePath!==join(target,'node_modules')});
 await cp(join(profile,'package.json'),join(backup,'profile-package.json'));
 // 部署前语法自检：任何关键文件不通过 node --check 就中止，避免把损坏的包装进 DSH。
+// 清单必须覆盖 index.js 的全部本地依赖（含间接依赖：store.js/seo-report-reader.js 都引用 seo-reports.js），漏拷会导致宿主启动即崩。
 const {spawnSync}=await import('node:child_process');
-for(const file of ['index.js','client.js','store.js','analysis.js','server.js','syncers.js','collector.js','chrome-bridge.js','entity-judge.js','question-jobs.js','core.js']){
+const FILES=['index.js','core.js','analysis.js','entity-judge.js','store.js','syncers.js','collector.js','chrome-bridge.js','server.js','client.js','question-jobs.js','data-root.js','seo-jobs.js','seo-reports.js','seo-report-reader.js'];
+for(const file of FILES){
   const r=spawnSync(process.execPath,['--check',join(source,file)],{encoding:'utf8'});
   if(r.status!==0)throw Error(`语法检查未通过，已中止部署：${file}\n${r.stderr||r.stdout}`);
 }
 // Copy only this plugin. Never run the profile package manager or change other bundles.
 await mkdir(target,{recursive:true});
-for(const file of ['index.js','core.js','analysis.js','entity-judge.js','store.js','syncers.js','collector.js','chrome-bridge.js','server.js','client.js','package.json','cordis.patch.yml','deployment.json','question-jobs.js'])await cp(join(source,file),join(target,file));
+for(const file of [...FILES,'package.json','cordis.patch.yml','deployment.json'])await cp(join(source,file),join(target,file));
 await cp(join(source,'chrome-extension'),join(target,'chrome-extension'),{recursive:true});
 await mkdir(join(target,'vendor/node_modules'),{recursive:true});
 for(const dependency of ['xlsx','playwright-core'])await cp(join(source,'vendor/node_modules',dependency),join(target,'vendor/node_modules',dependency),{recursive:true});
-const {symlink}=await import('node:fs/promises');await mkdir(join(target,'node_modules/@deepseek-ai'),{recursive:true});
-for(const dependency of ['schemastery','cordis','dsh-tools','dsh-settings','dsh-llm']){const dest=join(target,'node_modules/@deepseek-ai',dependency);if(!await exists(dest))await symlink(join(resolve(dirname(process.execPath),'../..'),'@deepseek-ai',dependency),dest,'junction');}
+// @deepseek-ai 依赖的 junction 只是兜底（宿主一般按自己的解析路径加载）；目标失效或已存在都不能让安装中断。
+const {symlink,rm}=await import('node:fs/promises');await mkdir(join(target,'node_modules/@deepseek-ai'),{recursive:true});
+for(const dependency of ['schemastery','cordis','dsh-tools','dsh-settings','dsh-llm']){
+  try{
+    const dest=join(target,'node_modules/@deepseek-ai',dependency);
+    await rm(dest,{recursive:true,force:true});
+    await symlink(join(resolve(dirname(process.execPath),'../..'),'@deepseek-ai',dependency),dest,'junction');
+  }catch(error){console.warn('junction skipped:',dependency,error.message);}
+}
 const p=JSON.parse(await readFile(join(profile,'package.json'),'utf8'));p.dependencies['dsh-seo-geo-workbench']='file:'+source.replaceAll('\\','/');p.dsh.profile.bundles=[...new Set([...p.dsh.profile.bundles,'dsh-seo-geo-workbench'])];await writeFile(join(profile,'package.json'),JSON.stringify(p,null,2)+'\n');
-for(const file of ['index.js','client.js','store.js','syncers.js','server.js','collector.js','chrome-bridge.js'])if((await readFile(join(source,file))).compare(await readFile(join(target,file)))!==0)throw Error('Install mismatch: '+file);
+for(const file of FILES)if((await readFile(join(source,file))).compare(await readFile(join(target,file)))!==0)throw Error('Install mismatch: '+file);
 const pkg=JSON.parse(await readFile(join(source,'package.json'),'utf8'));
 console.log(JSON.stringify({installed:true,version:pkg.version,target,backup,requiresHarnessRestart:true}));
 

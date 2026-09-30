@@ -3,7 +3,7 @@ import {mkdir,readFile,writeFile,rename,stat,readdir,rm} from 'node:fs/promises'
 import {join,basename,extname,resolve} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {seoCatalog,seoScope,createSeoSnapshot,seoHtml,seoCsv,seoAnalysisPrompt,sourceOf,siteOf} from './seo-reports.js';
-import {initialState,isOfficialCitation,publicUrl,mappingFor,parseCSV,normalizeRows,recordKey,analyse,isOursSignal,autoJudgeEntity,isRivalCitation,canonicalUrl,githubRepo,OFFICIAL_REPO_ORG,DEFAULT_ENTITY_RIVALS} from './analysis.js';
+import {initialState,isOfficialCitation,publicUrl,mappingFor,parseCSV,normalizeRows,recordKey,analyse,isOursSignal,autoJudgeEntity,isRivalCitation,canonicalUrl,githubRepo,OFFICIAL_REPO_ORG,DEFAULT_ENTITY_RIVALS,activityFor} from './analysis.js';
 // 深入分析选择（报告内嵌与 deep-status 共用同一套规则，输出规范 §5）：
 // 只取"综合版"（kind='geo' 优先，老数据无 kind 时回退六章节格式），报告对话/SEO 分析不进；
 // 范围匹配：分析覆盖记录至少一半落在报告范围内且至少 1 条；
@@ -110,12 +110,22 @@ export class Store {
    let browser;try{browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage();await page.route('**/*',route=>route.abort());await page.setContent(r.html,{waitUntil:'load'});const name=stem+'.pdf',path=join(dir,name);const data=await page.pdf({path,format:'A4',printBackground:true,margin:{top:'14mm',bottom:'14mm',left:'10mm',right:'10mm'}});return {name,base64:data.toString('base64'),path};}catch(e){throw Error('PDF 导出失败，请确认已安装 Edge；仍可导出 HTML。'+e.message);}finally{await browser?.close();}
   }
   constructor(root){this.root=resolve(root);this.file=join(this.root,'work','monitor-v3','state.json');this.tail=Promise.resolve();}
-  async read(){try{const s=JSON.parse(await readFile(this.file,'utf8'));s.version=Math.max(Number(s.version)||0,4);s.brand||=initialState().brand;s.brand.officialUrl||=s.brand.domain?'https://'+s.brand.domain:'';s.batches||=[];s.credentials||={};s.syncs||=[];s.schedules||=[];return s;}catch(e){if(e.code!=='ENOENT')throw e;return initialState();}}
+  async read(){try{const s=JSON.parse(await readFile(this.file,'utf8'));s.version=Math.max(Number(s.version)||0,4);s.brand||=initialState().brand;s.brand.officialUrl||=s.brand.domain?'https://'+s.brand.domain:'';s.batches||=[];s.credentials||={};s.syncs||=[];s.schedules||=[];s.actionStates||={};s.activities||=[];return s;}catch(e){if(e.code!=='ENOENT')throw e;return initialState();}}
   // 原子写带重试：Windows 上 rename 遇到目标被短暂占用（杀软扫描、上一个 DSH 实例未退净、并行会话句柄）会 EPERM/EBUSY，
   // 短暂退避重试可吸收瞬时占用；持续被锁才抛出（数据安全优先）。
-  async writeAtomic(text){const tmp=this.file+'.tmp';await writeFile(tmp,text);let last;
-    for(let i=0;i<8;i++){try{await rename(tmp,this.file);return;}catch(e){last=e;if(!['EPERM','EBUSY','EACCES'].includes(e.code))throw e;await new Promise(r=>setTimeout(r,150*(i+1)));}}
-    throw last;}
+  async writeAtomic(text){
+    // Every writer owns its temp file; hot reloads must not overwrite one another's staging file.
+    const tmp=this.file+'.'+process.pid+'.'+randomUUID()+'.tmp';
+    try{
+      await writeFile(tmp,text,{flag:'wx'});let last;
+      for(let i=0;i<8;i++){
+        try{await rename(tmp,this.file);return;}
+        catch(e){last=e;if(!['EPERM','EBUSY','EACCES'].includes(e.code))throw e;if(i<7)await new Promise(r=>setTimeout(r,150*(i+1)));}
+      }
+      throw last;
+    }finally{await rm(tmp,{force:true}).catch(()=>{});}
+  }
+
   mutate(fn){const work=this.tail.then(async()=>{const s=await this.read();const value=await fn(s);s.revision++;await mkdir(join(this.root,'work','monitor-v3'),{recursive:true});await this.writeAtomic(JSON.stringify(s,null,2));return value??s;});this.tail=work.catch(()=>{});return work;}
   async preview({name,base64,text,sheet}) {
     const bytes=base64?Buffer.from(base64,'base64'):Buffer.from(text||'');
@@ -272,6 +282,38 @@ export class Store {
         return {judged,ours,rival,mixed,unknown};
       }
       else if(a.type==='sample.verifyMany'){const ids=new Set(a.ids||[]);let done=0,skipped=0;for(const r of s.records){if(!ids.has(r.id)||r.source!=='official_web'||r.eligible)continue;let ok=!!(r.answer?.trim()&&r.question&&r.date&&r.sourceUrl&&r.screenshotPath);if(ok)try{ok=(await stat(r.screenshotPath)).size>0;}catch(e){ok=false;}if(!ok){skipped++;continue;}r.eligible=true;r.reviewedAt=new Date().toISOString();const t=s.tasks.find(t=>t.id===r.taskId);if(t)t.status='completed';const p=s.platforms.find(p=>p.id===r.platformId);if(p){p.status='ready';p.lastCheckedAt=Date.now();}done++;}return {done,skipped};}
+      else if(a.type==='action.status'){
+        const key=String(a.key||'');if(!/^[\w-]{1,60}$/.test(key))throw Error('行动标识无效');
+        if(!['todo','done'].includes(a.status))throw Error('行动状态取值无效');
+        s.actionStates[key]={status:a.status,doneAt:a.status==='done'?new Date().toISOString():''};
+      }
+      else if(a.type==='action.retest'){
+        const key=String(a.key||'');if(!/^[\w-]{1,60}$/.test(key))throw Error('行动标识无效');
+        const cancelled=new Set(Object.values(s.actionStates||{}).map(row=>row.cancelledRetestBatchId).filter(Boolean));
+        const base=a.batchId?(s.batches||[]).find(b=>b.id===a.batchId&&!cancelled.has(b.id)):(s.batches||[]).slice().reverse().find(b=>!cancelled.has(b.id)&&(s.tasks||[]).some(t=>t.batchId===b.id));
+        if(!base)throw Error('还没有可复测的采集批次');
+        const r=createBatch(s,{name:base.name,questions:base.questions,platformIds:base.platformIds,group:base.group,mode:base.mode,repeat:base.repeat},'复测 · ');
+        s.actionStates[key]={status:'retest',baseBatchId:base.id,retestBatchId:r.batchId,startedAt:new Date().toISOString()};
+        return {batchId:r.batchId};
+      }
+      else if(a.type==='action.retest.cancel'){
+        const key=String(a.key||'');const current=s.actionStates[key];
+        if(!/^[\w-]{1,60}$/.test(key)||current?.status!=='retest'||!current.retestBatchId)throw Error('找不到进行中的复测');
+        let paused=0;
+        for(const task of s.tasks)if(task.batchId===current.retestBatchId&&['queued','running'].includes(task.status)){task.status='paused';paused++;}
+        s.actionStates[key]={status:'todo',cancelledAt:new Date().toISOString(),cancelledRetestBatchId:current.retestBatchId};
+        return {batchId:current.retestBatchId,paused};
+      }
+      else if(a.type==='activity.add'){
+        const title=String(a.title||'').trim();if(!title||title.length>120)throw Error('标题需要 1-120 个字符');
+        const type=String(a.category||'其他');if(!['帖子','视频','官网改动','仓库更新','其他'].includes(type))throw Error('动作类型无效');
+        const url=String(a.url||'').trim();const checked=url?publicUrl(url):'';
+        let date=String(a.date||'').trim();
+        if(!date)date=new Date().toISOString().slice(0,10);
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date)))throw Error('日期格式应为 YYYY-MM-DD');
+        s.activities.unshift({id:randomUUID(),date,type,channel:String(a.channel||'').trim().slice(0,40),url:checked,title,note:String(a.note||'').trim().slice(0,500),actionKey:String(a.actionKey||''),createdAt:new Date().toISOString()});
+      }
+      else if(a.type==='activity.delete'){const i=(s.activities||[]).findIndex(x=>x.id===a.id);if(i<0)throw Error('动作记录不存在');s.activities.splice(i,1);}
       else throw Error('未知操作');
     });
   }
@@ -326,6 +368,17 @@ export class Store {
     // 深入分析只内嵌与所选范围匹配的"综合版"（范围不符宁可显示占位提示）——
     // 选择规则与 deep-status 完全同源（pickDeep），前端"是否已有匹配"判断和这里不会打架。
     const {deep,hits:deepHits}=pickDeep(s,a.selected);
+    // 本周动作与归因：报告范围内日期 ≥ 最早样本日期 − 14 天的动作记录；被引用 = 范围内有效样本的正式引用（跳转解包后）按主机名+路径前缀命中动作链接。
+    const actSection=(()=>{
+      const cutoff=dates.length?new Date(new Date(dates[0]).getTime()-14*864e5).toISOString().slice(0,10):'';
+      const list=(s.activities||[]).filter(x=>!cutoff||String(x.date||'')>=cutoff);
+      if(!list.length)return '<section><h2>本周动作与归因</h2><p class="muted">本期没有记录动作。</p></section>';
+      const rows=list.map(x=>{
+        const hits=geo.filter(r=>(r.citations||[]).some(u=>activityFor(u,[x]))).map(r=>r.id);
+        return '<tr><td>'+esc(x.date)+'</td><td>'+esc(x.type)+'</td><td>'+esc(x.channel||'—')+'</td><td>'+(x.url?'<a href="'+esc(x.url)+'">'+esc(x.title)+'</a>':esc(x.title))+(x.note?'<br><small class="muted">'+esc(x.note)+'</small>':'')+'</td><td class="n">'+hits.length+'</td><td>'+hits.slice(0,12).map(id=>'<span class="id">'+esc(String(id).slice(0,8))+'</span>').join(' ')+(hits.length>12?' …':'')+'</td></tr>';
+      }).join('');
+      return '<section><h2>本周动作与归因</h2><p class="legend">列出报告范围内日期 ≥ 最早样本日期 − 14 天（'+esc(cutoff||'—')+' 起）的动作记录；「被引用」= 本报告范围内有效样本的正式引用（跳转链接解包后）按主机名 + 路径前缀命中动作链接的次数。</p><table><tr><th>日期</th><th>类型</th><th>渠道</th><th>动作</th><th class="n">被引用</th><th>引用样本</th></tr>'+rows+'</table></section>';
+    })();
     const follows=deep?(s.reports||[]).filter(r=>r.parentId===deep.id):[];
     const one=(deep&&(deep.text.match(/一句话结论[：:]\s*([^\n]+)/)||[])[1])||'';
     const callout=one?esc(one):(ent.ours===0&&a.mentions>0?'名字提及 '+a.mentions+' 条但主体确认我方 '+ent.ours+' 条——品牌名心智被同名项目占据，优先夺回实体归属。':'本期共 '+geo.length+' 条有效样本；先完成主体判定与深入分析，再据此排布行动。');
@@ -408,6 +461,7 @@ ${removed.length?'<div><b>'+removed.length+' 条剔除</b>'+removed.slice(0,4).m
 <div class="cards">${cards.map(c=>'<div class="card '+c[3]+'"><small>'+c[0]+'</small><b>'+c[1]+'</b><small>'+esc(c[2])+'</small></div>').join('')}</div>
 <p class="legend">主体判定分布：我方 ${ent.ours} · 混合 ${ent.mixed} · 竞品 ${ent.rival} · 待判定 ${ent.unjudged}（其中提及品牌而未判定 ${ent.unjudgedMentioned||0} 条，其余多为未提及品牌）。判定来源：确定性信号规则自动 ${ent.auto||0} 条 · LLM 兜底自动 ${ent.llm||0} 条 · 人工 ${ent.manual||0} 条。人工判定优先于一切自动判定；名字出现为文本匹配（同名项目会命中）。品牌词提及率、场景覆盖率、首位/前三提及率均以主体判定=我方计数，同名命中、混合与待判定样本不计入。</p>
 </section>
+${actSection}
 ${deepBody}
 <section><h2>每题 × 平台检测矩阵</h2><p class="legend">✓ 主体确认我方 · △ 混合 · ✗ 主体为竞品 · ？名字出现但待判定 · — 未提及品牌名 · ★ 正式引用官网</p>
 <table><tr><th>问题</th>${platforms.map(p=>'<th class="c">'+esc(p)+'</th>').join('')}</tr>${matrix}</table></section>
@@ -527,6 +581,8 @@ ${deepBody}
   }
   // 前端"是否已有匹配深入分析"的查询口：与报告内嵌同源（pickDeep），matched=false 时客户端才触发后台生成。
   async deepStatus(filter){const s=await this.read(),a=analyse(s,filter);const {deep,hits,scopeSize}=pickDeep(s,a.selected);return {matched:!!deep,id:deep?.id||'',createdAt:deep?.createdAt||'',cover:(deep?.recordIds||[]).length,hits,scope:scopeSize};}
-  async report(filter){const s=await this.read(),a=analyse(s,filter);const text=filter.format==='html'?this.htmlReport(s,a,filter):`# ${s.brand.name} SEO/GEO 监测报告\n\n生成时间：${new Date().toISOString()}\n筛选：${JSON.stringify(filter)}\n\n有效 GEO 样本 ${a.geo.length}；品牌出现 ${a.mentions}；正式引用官网 ${a.cited}。\n出现统计不等于准确理解或推荐，语义判断请运行 DSH 分析。\n\n## 平台与题型\n${a.byPlatform.map(p=>`- ${p.name}：${p.mentioned}/${p.total}`).join('\n')}\n\n## 行动建议\n${a.actions.map(x=>`- ${x.title}：${x.detail}\n  证据：${x.ids.join(', ')}`).join('\n')||'当前没有足够证据生成行动项。'}\n\n## 样本索引\n${a.selected.map(r=>`- [${r.id}] ${r.platform||r.kind} ${r.date||'采样日期未知'} ${r.location}`).join('\n')}\n`;
+  async report(filter){const s=await this.read(),a=analyse(s,filter);
+    const mdActivities=(()=>{const dates=a.geo.map(r=>(r.date||'').slice(0,10)).filter(Boolean).sort();const cutoff=dates.length?new Date(new Date(dates[0]).getTime()-14*864e5).toISOString().slice(0,10):'';const list=(s.activities||[]).filter(x=>!cutoff||String(x.date||'')>=cutoff);if(!list.length)return '本期没有记录动作。';return list.map(x=>{const hits=a.geo.filter(r=>(r.citations||[]).some(u=>activityFor(u,[x]))).map(r=>r.id);return `- ${x.date} · ${x.type} · ${x.channel||'—'} · ${x.title}${x.url?'（'+x.url+'）':''} · 被引用 ${hits.length} 次${hits.length?'：'+hits.join(', '):''}`;}).join('\n');})();
+    const text=filter.format==='html'?this.htmlReport(s,a,filter):`# ${s.brand.name} SEO/GEO 监测报告\n\n生成时间：${new Date().toISOString()}\n筛选：${JSON.stringify(filter)}\n\n有效 GEO 样本 ${a.geo.length}；品牌出现 ${a.mentions}；正式引用官网 ${a.cited}。\n出现统计不等于准确理解或推荐，语义判断请运行 DSH 分析。\n\n## 本周动作与归因\n${mdActivities}\n\n## 平台与题型\n${a.byPlatform.map(p=>`- ${p.name}：${p.mentioned}/${p.total}`).join('\n')}\n\n## 行动建议\n${a.actions.map(x=>`- ${x.title}：${x.detail}${x.do?'\n  做法：'+x.do:''}\n  证据：${x.ids.join(', ')}`).join('\n')||'当前没有足够证据生成行动项。'}\n\n## 样本索引\n${a.selected.map(r=>`- [${r.id}] ${r.platform||r.kind} ${r.date||'采样日期未知'} ${r.location}`).join('\n')}\n`;
     await mkdir(join(this.root,'outputs','monitor-v3'),{recursive:true});const file=join(this.root,'outputs','monitor-v3',`${filter.format==='html'?'GEO检测报告':'report'}-${new Date().toISOString().slice(0,10)}-${Date.now()%100000}.${filter.format==='html'?'html':'md'}`);await writeFile(file,text);return {text,path:file};}
 }
