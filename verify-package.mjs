@@ -10,7 +10,9 @@ const npmCli=process.env.npm_execpath||join(dirname(process.execPath),'node_modu
 const result=spawnSync(process.execPath,[npmCli,'pack','--ignore-scripts','--json','--pack-destination',output],{cwd:root,encoding:'utf8'});
 if(result.status!==0)throw Error(result.stderr||result.stdout);
 const [packed]=JSON.parse(result.stdout);const files=new Set(packed.files.map(f=>f.path));
-for(const f of ['package.json','index.js','client.js','seo-report-reader.js','data-root.js','cordis.patch.yml','chrome-extension/background.js'])assert.ok(files.has(f),'missing '+f);
+for(const f of ['package.json','index.js','client.js','seo-report-reader.js','data-root.js','cordis.patch.yml',...['manifest.json','background.js','popup.html','popup.js','popup.css'].map(f=>'chrome-extension/'+f)])assert.ok(files.has(f),'missing '+f);
+const {inspectExtension}=await import('./collector.js');
+const extension=await inspectExtension();assert.equal(extension.extensionAvailable,true,extension.extensionError);
 for(const f of files)assert.ok(!/(^|\/)(deployment\.json|state\.json|auth\.json|\.env|test|work|outputs|\.git)(\/|$)/i.test(f),'private/development file '+f);
 for(const f of files){if(!/\.(?:js|mjs|json|yml|md)$/.test(f))continue;const text=await readFile(join(root,f),'utf8');assert.ok(!/[A-Z]:[\\/]Users[\\/]|D:[\\/]Cpan|D:[\\/]DSH[\\/]/i.test(text),'personal absolute path in '+f);}
 const bytes=(await stat(join(output,packed.filename))).size;assert.ok(bytes<=8*1024*1024,'market package exceeds 8 MiB');

@@ -35,7 +35,7 @@ const original=await readFile(new URL('../client.js',import.meta.url),'utf8');
 function render(view,state,replacements=[]){
  let source=original.replace('return {App,call};','globalThis.testApp=App; return {App,call};')
  .replace('[state,setState]=useState(null)','[state,setState]=useState(globalThis.fixture)')
- .replace("[view,setView]=useState('action')",`[view,setView]=useState('${view}')`)
+ .replace("[view,setView]=useState('board')",`[view,setView]=useState('${view}')`)
  .replace('[brand,setBrand]=useState(null)','[brand,setBrand]=useState(globalThis.fixture.brand)')
  .replace("[boardRange,setBoardRange]=useState('30')","[boardRange,setBoardRange]=useState('all')");
  for(const [from,to] of replacements){assert.ok(source.includes(from),from);source=source.replace(from,to);}
@@ -85,9 +85,32 @@ test('action page follows latest report, renumbers open work and retains complet
  assert.equal(rows.length,2);
  const firstKey=rows[0].props.key;s.actionStates[firstKey]={status:'done',doneAt:'2026-09-29T12:00:00Z'};
  tree=render('action',s);t=textOf(tree);
- assert.match(t,/已完成 1 项/);
+ assert.match(t,/已完成 1/);
  const active=nodes(tree).find(n=>n.props?.className==='sg-act');
  assert.equal(textOf(active.children[0]),'1');
+ assert.ok(nodes(tree).some(n=>n.props?.role==='tab'&&textOf(n)==='已完成 1'));
+});
+
+test('retests with failed, paused or unreviewed work remain actionable, only completed work is finished',()=>{
+ const s=fixture();s.reports=[{id:'g',kind:'geo',createdAt:'2026-09-30T10:00:00Z',recordIds:['r1'],text:'## 6. 行动与复测\nP0｜完善介绍：补齐案例；复测：正确识别。\n复测总表：'}];
+ const row=nodes(render('action',s)).find(n=>n.props?.className==='sg-act');
+ s.actionStates[row.props.key]={status:'retest',retestBatchId:'rt'};
+ for(const status of ['failed','paused','needs_review']){
+  s.tasks=[{id:'t',batchId:'rt',status}];const t=textOf(render('action',s));
+  assert.match(t,/复测待处理/);assert.match(t,/查看复测任务/);assert.doesNotMatch(t,/已完成 1/);
+ }
+ s.tasks=[{id:'t',batchId:'rt',status:'completed'}];const t=textOf(render('action',s));assert.match(t,/已完成 1/);
+});
+
+test('action has no dashboard metrics or initial setup tasks when there are no records',()=>{
+ const s=fixture();s.records=[];s.tasks=[];const tree=render('action',s),t=textOf(tree);
+ assert.match(t,/暂无报告行动/);assert.doesNotMatch(t,/三步开始|接入搜索词数据|最近批次观察/);
+ assert.equal(nodes(tree).filter(n=>n.props?.className==='sg-kpis').length,0);
+ const setup=render('settings',s);assert.match(textOf(setup),/初始化引导/);assert.match(textOf(setup),/Command \+ Shift \+ G/);
+ s.tasks=[{id:'paused',batchId:'cancelled',status:'paused'},{id:'cancelled',batchId:'cancelled',status:'queued'},{id:'running',batchId:'active',status:'running'},{id:'waiting',batchId:'active',status:'queued'}];
+ s.actionStates.old={status:'todo',cancelledRetestBatchId:'cancelled'};
+ assert.doesNotMatch(textOf(render('action',s)),/采集等待启动/,'cancelled work and a running queue must not become user tasks');
+ s.tasks.push({id:'new',batchId:'new',status:'queued'});assert.match(textOf(render('action',s)),/采集等待启动 1 条/);
 });
 
 test('loading a saved SEO report preview shows the narrative document for its base row',()=>{

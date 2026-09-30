@@ -492,6 +492,10 @@ const SG_CSS=`
 .sg-kpi .sg-kpi-note{grid-column:1/3;font-size:12px;color:var(--muted)}
 `;
 const SG_CSS2=`
+.sg-action-layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(320px,1fr);gap:18px;align-items:start}.sg-action-layout>.sg-card{min-width:0}.sg-progress-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:12px 0 4px}.sg-progress-tabs button{border:0;border-bottom:2px solid transparent;background:none;color:var(--ink2);padding:9px 12px;cursor:pointer;font:inherit}.sg-progress-tabs button[aria-selected=true]{border-bottom-color:var(--accent);color:var(--accent-ink);font-weight:600}.sg-task-list>.sg-todo-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line2)}.sg-task-list>.sg-todo-item:last-child{border:0}.sg-task-list>.sg-todo-item .sg-muted{grid-column:1;min-width:0;overflow-wrap:anywhere}.sg-task-list>.sg-todo-item .sg-btn{grid-column:2;grid-row:1/span 2}.sg-done-item{display:flex;gap:10px;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid var(--line2)}.sg-done-item>div{min-width:0}.sg-done-item b,.sg-done-item small{display:block;overflow-wrap:anywhere}.sg-done-item small{margin-top:3px}.sg-done-item .sg-btn{flex:none}.sg-activity-section{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}.sg-activity-head{justify-content:space-between;align-items:flex-start;margin-bottom:12px}.sg-activity-head h3{font-size:14px;margin:0}.sg-activity-head p{font-size:12px;margin:3px 0 0}.sg-activity-section .sg-li{overflow-wrap:anywhere}
+@container (width <= 1000px){.sg-action-layout{grid-template-columns:minmax(0,1fr)}}
+.sg-stack>.sg-todo-item{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sg-stack>.sg-todo-item .sg-btn{margin-left:auto}.sg-setup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;list-style:decimal;padding-left:24px;margin:12px 0}.sg-setup li{padding:10px 0}.sg-setup li>div{margin-bottom:6px}.sg-setup p{margin:4px 0}.sg-install{padding-left:24px}.sg-install>li{padding:12px 0;border-bottom:1px solid var(--line2)}.sg-install>li:last-child{border:0}.sg-extension-result,.sg-install-help{margin-top:12px;padding:14px;border:1px solid var(--line);border-radius:8px;overflow-wrap:anywhere}.sg-extension-result{background:var(--accent-wash)}.sg-extension-result textarea{overflow-wrap:anywhere;word-break:break-all;resize:vertical}.sg-inline-feedback{padding:12px;border:1px solid var(--line);border-radius:8px;margin-top:10px}.sg-inline-feedback.success{color:var(--good-text)}.sg-inline-feedback.error{color:var(--crit-text)}
+
 .sg-act{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--line2)}
 .sg-act:first-of-type{border-top:0}
 .sg-act .sg-n{flex:none;width:22px;height:22px;border-radius:50%;background:var(--accent-wash);color:var(--accent-ink);font-size:12px;font-weight:700;display:grid;place-items:center}
@@ -605,7 +609,7 @@ details.sg-dt table{margin-top:6px}
 .sg-hbars{display:grid;gap:16px}.sg-hbar-label{display:flex;gap:14px;justify-content:space-between;align-items:baseline;margin-bottom:7px;font-size:13px}.sg-hbar-label>span{overflow-wrap:anywhere;min-width:0}.sg-hbar-label>b{white-space:nowrap;font-variant-numeric:tabular-nums;font-size:12px}.sg-hbar .sg-bar{height:7px}.sg-chart{display:block;min-width:260px}.sg-card:has(>.sg-chart){overflow:auto}.sg-rank-summary{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:18px;color:var(--ink2);font-size:12px}.sg-rank-summary b{font-size:18px;margin-right:4px;color:var(--ink)}.sg-rank-summary select{margin-left:auto}.sg-rank-site{display:flex;gap:12px;align-items:flex-start;min-width:200px}.sg-rank-no{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;padding-top:2px}.sg-rank-site b{font-size:14px}.sg-rank-rate{min-width:85px;font-variant-numeric:tabular-nums}.sg-rank-rate .sg-bar{margin-top:7px}.sg-source-url{font-size:11px;overflow-wrap:anywhere}.sg-block{display:block;font-size:11px;margin-top:6px;max-width:180px}.sg-note{line-height:1.75}.sg-pagination{display:flex;gap:16px;justify-content:center;align-items:center;margin-top:18px;font-size:12px;color:var(--ink2)}
 .sg-step{padding:20px 0;gap:14px}.sg-step .sg-grid+.sg-row{margin-top:12px}.sg-step h3{font-size:15px;margin-bottom:14px}.sg-step .sg-grid{grid-template-columns:minmax(0,1fr)}.sg-step .sg-chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.sg-step .sg-chip{border-radius:10px;flex-wrap:wrap;padding:11px;min-width:0}.sg-platform-manage{margin-left:auto;font-size:11px}.sg-platform-manage summary{cursor:pointer;color:var(--accent-ink)}.sg-platform-manage[open]{width:100%;margin-top:8px}.sg-platform-manage .sg-row{padding-top:8px}.sg-step textarea{min-height:126px}.sg-field{min-width:0}.sg-field>span{font-size:12px;color:var(--ink2)}.sg-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sg-field input:not([type=checkbox]),.sg-field select,.sg-field textarea{min-width:0;width:100%}.sg-app input[type=checkbox]{width:15px;height:15px;flex:0 0 15px;accent-color:var(--accent);margin:0}.sg-field>.sg-chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.sg-field>.sg-chips>.sg-chip{border-radius:8px;padding:10px;line-height:1.5;justify-content:flex-start;align-items:flex-start}.sg-field>.sg-chips>.sg-chip input{margin-top:3px}.sg-row>.sg-field{flex:1 1 155px}.sg-drop{border:1px dashed #b5c7e7;border-radius:12px;padding:20px;background:var(--accent-wash)}.sg-drop input{max-width:100%;font-size:12px}.sg-rec{padding:18px 0}.sg-a{line-height:1.85}.sg-cites{gap:6px}.sg-cites a{max-width:100%;overflow:hidden;text-overflow:ellipsis}.sg-integration{padding:16px 0;border-top:1px solid var(--line);margin-top:14px}.sg-integration>summary{cursor:pointer;font-size:14px;font-weight:600;padding-bottom:10px}.sg-integration[open]>.sg-grid{margin-top:12px}.sg-report-doc{height:650px;max-width:100%;border:1px solid var(--line);border-radius:10px}.sg-host-toolbar{display:flex;align-items:center;justify-content:space-between;background:#fff;color:#526078;font:12px/1.6 system-ui}.sg-host-toolbar button{font:inherit;border:1px solid #dce3ed;background:#f7f9fc;border-radius:7px;padding:5px 10px;color:#344766;cursor:pointer}
 @container (width <= 1100px){.sg-g2,.sg-g31{grid-template-columns:minmax(0,1fr)}.sg-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.sg-main{padding:24px}.sg-chart{max-height:320px}.sg-head{align-items:flex-start}}
-@container (width <= 700px){.sg-g11,.sg-grid{grid-template-columns:1fr}.sg-card,.sg-panel{padding:18px}.sg-head{flex-direction:column;gap:14px}.sg-card-head{flex-wrap:wrap}.sg-rank-summary{gap:12px}.sg-pagination{gap:8px;flex-wrap:wrap}.sg-tabs{max-width:100%;overflow:auto;display:flex}.sg-tabs button{white-space:nowrap;padding:7px 10px}}
+@container (width <= 700px){.sg-setup{grid-template-columns:1fr;gap:8px}.sg-g11,.sg-grid{grid-template-columns:1fr}.sg-card,.sg-panel{padding:18px}.sg-head{flex-direction:column;gap:14px}.sg-card-head{flex-wrap:wrap}.sg-rank-summary{gap:12px}.sg-pagination{gap:8px;flex-wrap:wrap}.sg-tabs{max-width:100%;overflow:auto;display:flex}.sg-tabs button{white-space:nowrap;padding:7px 10px}}
 @container (width <= 900px){.sg-app{grid-template-columns:150px minmax(0,1fr)}}
 @container (width <= 600px){.sg-app{display:flex;flex-direction:column}.sg-side{padding:8px 10px;flex:none;overflow:visible;border-right:0;border-bottom:1px solid var(--line)}.sg-brand{display:none}.sg-nav{display:flex;overflow:auto;gap:2px}.sg-nav button{white-space:nowrap;font-size:12px}.sg-main{flex:1;min-height:0;width:100%}.sg-side-foot{display:none}.sg-nav{gap:3px}.sg-nav button{padding:9px}.sg-nav button svg{display:none}.sg-main{padding:20px 14px 40px}.sg-kpi{padding:15px}.sg-kpi .sg-kpi-val{font-size:28px}.sg-step .sg-chips,.sg-field>.sg-chips{grid-template-columns:1fr}.sg-kpis{gap:10px}.sg-filters select,.sg-filters input{max-width:100%;min-width:0;flex:1 1 130px}.sg-head h1{font-size:24px}}
 @media(prefers-color-scheme:dark){.sg-app{--plane:#131b29;--side:#182231;--surface:#1b2738;--ink:#e6edf7;--ink2:#bfccdf;--muted:#98abc4;--line:#35445a;--line2:#2c3b50;--grid:#35445a;--accent:#3568d4;--primary-hover:#2652b4;--accent-ink:#a4c5ff;--accent-wash:#223a60;--hover:#26364d;--good-text:#78d8a1;color-scheme:dark}.sg-btn.primary{color:#fff}.sg-host-toolbar{background:#182231;color:#bfccdf}.sg-host-toolbar button{background:#25364c;border-color:#35445a;color:#e6edf7}.sg-drop{border-color:#49658c}.sg-bar{background:var(--line)}.sg-report-doc{background:#fff}}
@@ -752,7 +756,7 @@ function createApplication(React,logic){
   }finally{ref?.release?.();}
  }
  // ---- v0.15 六页导航与 UI 基元 ----
- const tabs=[['action','行动'],['board','看板'],['collect','采集'],['evidence','证据'],['reports','报告'],['settings','设置']];
+ const tabs=[['board','看板'],['action','行动'],['collect','采集'],['evidence','证据'],['reports','报告'],['settings','设置']];
  const ICONS={
   action:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   board:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 15v-4M12 15V8M17 15v-6"/>',
@@ -898,7 +902,7 @@ function createApplication(React,logic){
    img&&h('img',{src:img,alt:'采样截图',style:{maxWidth:'100%',borderRadius:'8px',marginTop:'8px'}}));
  }
  function App({runtime,onClose}){
-  const [state,setState]=useState(null),[view,setView]=useState('action'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
+  const [state,setState]=useState(null),[view,setView]=useState('board'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const [seoCatalog,setSeoCatalog]=useState(null),[seoScope,setSeoScope]=useState(null),[seoDocument,setSeoDocument]=useState(null),[seoQuestion,setSeoQuestion]=useState('');
   const [seoOptions,setSeoOptions]=useState(()=>({site:'',sources:[],from:new Date(Date.now()-27*864e5).toISOString().slice(0,10),to:new Date().toISOString().slice(0,10),coverage:'common',compare:'none',topic:'overall',includeUnknownSite:false}));
   const seoScopeVersion=useRef(0),seoInitialized=useRef(false);
@@ -912,7 +916,12 @@ function createApplication(React,logic){
   const [selBatches,setSelBatches]=useState([]);const [repKind,setRepKind]=useState('geo');const [openHist,setOpenHist]=useState(null);
   const [evEntity,setEvEntity]=useState(''),[evQuery,setEvQuery]=useState('');
   const [evPage,setEvPage]=useState(1),[evKind,setEvKind]=useState(''),[rankLimit,setRankLimit]=useState(10);
-  const mainRef=useRef(null);
+  const mainRef=useRef(null),initialView=useRef(false);
+  const [brandFeedback,setBrandFeedback]=useState(null),[extensionFeedback,setExtensionFeedback]=useState(''),[extensionBusy,setExtensionBusy]=useState(false),[showExtension,setShowExtension]=useState(false);
+  const [actionFilter,setActionFilter]=useState('pending');
+  const setupBrandRef=useRef(null),setupBrowserRef=useRef(null),extensionResultRef=useRef(null);
+  useEffect(()=>{if(showExtension&&!extensionBusy)extensionResultRef.current?.scrollIntoView({block:'nearest'});},[showExtension,extensionBusy]);
+  const scrollSetup=ref=>ref.current?.scrollIntoView({behavior:'smooth',block:'start'});
   useEffect(()=>{mainRef.current?.scrollTo({top:0});},[view]);
   const [boardRange,setBoardRange]=useState('30'),[boardPlatform,setBoardPlatform]=useState(''),[boardGroup,setBoardGroup]=useState('');
   const [actOpen,setActOpen]=useState(false),[actDraft,setActDraft]=useState({type:'帖子',channel:'',url:'',title:'',note:'',actionKey:''});
@@ -922,6 +931,7 @@ function createApplication(React,logic){
   const [chatInput,setChatInput]=useState(''),[recDraft,setRecDraft]=useState(()=>readDraft().recDraft||''),[qJob,setQJob]=useState(null);
   const [progress,setProgress]=useState(null),[brand,setBrand]=useState(null),[images,setImages]=useState({}),[lastEvidence,setLastEvidence]=useState([]),[modelKey,setModelKey]=useState(()=>{try{return localStorage.getItem('dsh-seo-geo-execution-model')||DEFAULT_EXECUTION_MODEL;}catch{return DEFAULT_EXECUTION_MODEL;}}),[catalog,setCatalog]=useState(null),[chromeInfo,setChromeInfo]=useState(null);
   const [browserChoice,setBrowserChoice]=useState(()=>readDraft().browserChoice||'chrome');
+  useEffect(()=>{setBrandFeedback(f=>f?.status==='success'&&JSON.stringify(brand)!==JSON.stringify(state?.brand)?null:f);},[brand,state?.brand]);
   const appliedQuestion=useRef(readDraft().appliedQuestion||'');
   useEffect(()=>{try{localStorage.setItem('dsh.seo-geo.draft',JSON.stringify({demand,question,recDraft,browserChoice,appliedQuestion:appliedQuestion.current}));}catch{setMessage('无法保存草稿，请检查浏览器存储空间');}},[demand,question,recDraft,browserChoice]);
   useEffect(()=>{const j=state?.questionJob;if(!j)return;setQJob({...j,done:j.status!=='running'});if(j.status==='completed'&&j.id!==appliedQuestion.current){appliedQuestion.current=j.id;const qs=String(j.text||'').split(/\r?\n/).map(x=>x.trim().replace(/^[-*•]|^\d+[.、)）]/,'').trim()).filter(x=>x.length>=6&&x.length<=120).slice(0,30);setRecDraft(qs.join('\n'));setMessage('后台已生成推荐问题，可编辑后加入采集问题集。');}if(['failed','interrupted'].includes(j.status))setMessage(j.error);},[state?.questionJob?.id,state?.questionJob?.status]);
@@ -934,7 +944,7 @@ function createApplication(React,logic){
   useEffect(()=>{try{localStorage.setItem('dsh-seo-geo-execution-model',modelKey);}catch{}},[modelKey]);
   useEffect(()=>{if(runtime)call('configure-session',{catalog:true}).then(setCatalog).catch(e=>setMessage(e.message));},[]);
   const executionSettings=()=>field('执行模型',select(modelKey,setModelKey,[['',catalog?.default?`DSH 默认：${catalog.default.provider} / ${catalog.default.model}`:'使用 DSH 当前模型'],...(catalog?.groups||[]).flatMap(g=>g.models.map(m=>[JSON.stringify({provider:g.id,model:m.id}),`${g.name} / ${m.name}`]))],'执行模型'));
-  const refresh=async()=>{const s=await call('state');if(mounted.current){setState(s);setBrand(b=>b||s.brand);}return s;};
+  const refresh=async()=>{const s=await call('state');if(mounted.current){setState(s);setBrand(b=>b||s.brand);if(!initialView.current){initialView.current=true;if(!s.brand?.name&&!s.records.length&&!s.tasks.length)setView('settings');}}return s;};
   useEffect(()=>{mounted.current=true;refresh().catch(e=>setMessage(e.message));return()=>{mounted.current=false;};},[]);
   useEffect(()=>{const timer=setInterval(()=>{if(mounted.current)refresh().catch(()=>{});},5000);return()=>clearInterval(timer);},[]);
   useEffect(()=>{if(!runtime)return;call('chrome-connection').then(setChromeInfo).catch(()=>{});},[runtime]);
@@ -942,6 +952,22 @@ function createApplication(React,logic){
   const act=async a=>{await call('action',a);return refresh();};
   useEffect(()=>{setEvPage(1);},[filter,evEntity,evQuery,evKind,lastEvidence]);
   const go=v=>{setView(v);setMessage('');};
+  const saveBrand=()=>perform(async()=>{
+   setBrandFeedback({status:'saving',text:'正在保存品牌设置…'});
+   try{const saved=await act({type:'brand.save',brand});setBrand(saved.brand);setBrandFeedback({status:'success',text:'品牌设置已保存。下一步：连接浏览器并完成平台自检。'});}
+   catch(e){setBrandFeedback({status:'error',text:'保存失败：'+e.message});throw e;}
+  });
+  const getExtension=()=>perform(async()=>{
+   setShowExtension(true);setExtensionBusy(true);setExtensionFeedback('正在检查扩展文件并获取本机连接码…');
+   try{const info=await call('chrome-connection');setChromeInfo(info);setExtensionFeedback(info.extensionAvailable===false?info.extensionError:'已获取扩展目录和连接码，请按第 2 步安装。');}
+   catch(e){setChromeInfo(null);setExtensionFeedback('获取失败：'+e.message+'。请确认工作台服务正在运行后重试。');throw e;}
+   finally{setExtensionBusy(false);}
+  });
+  const checkConnection=()=>perform(async()=>{
+   setExtensionFeedback('正在检查连接…');
+   try{const info=await call('chrome-connection');setChromeInfo(info);setExtensionFeedback(info.extensionAvailable===false?info.extensionError:info.requiresReload?'扩展版本不匹配，请在扩展管理页重新加载后再检查。':info.connected?'浏览器已连接，可以去平台试采。':'尚未连接：请完成第 2 步安装和第 3 步配对，再检查。');}
+   catch(e){setExtensionFeedback('检查失败：'+e.message);throw e;}
+  });
   const add=()=>perform(async()=>{await act({type:'platform.add',name,url});setName('');setUrl('');setShowAdd(false);setMessage('网站已添加，运行一题测试后可验收采集能力。');});
   async function files(files){await perform(async()=>{const results=[],errors=[];for(const file of files){try{if(file.size>8*1024*1024)throw Error('超过 8 MB');const bytes=new Uint8Array(await file.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=16384)binary+=String.fromCharCode(...bytes.subarray(i,i+16384));const payload={name:file.name,base64:btoa(binary)};const p=await call('preview',payload);results.push({...p,payload});}catch(e){errors.push(file.name+'：'+e.message);}}setPreviews(ps=>[...ps,...results]);if(errors.length)setMessage('部分文件解析失败：'+errors.join('；'));});}
   const editPreview=(id,patch)=>setPreviews(ps=>ps.map(x=>x.id===id?{...x,...patch}:x));
@@ -1097,8 +1123,8 @@ function createApplication(React,logic){
   const badge=pendingRecords.length+failedTasks.length+loginPlatforms.length;
   const batches=(state.batches||[]).map(b=>{const items=state.tasks.filter(t=>t.batchId===b.id),count=status=>items.filter(t=>status.includes(t.status)).length;const taskIds=new Set(items.map(t=>t.id)),recs=state.records.filter(r=>!r.invalidatedAt&&taskIds.has(r.taskId));return {...b,items,total:items.length,done:count(['completed','needs_review']),failed:count(['failed','blocked','needs_login']),queued:count(['queued']),running:count(['running']),recordIds:recs.map(r=>r.id),pendingIds:recs.filter(r=>!r.eligible).map(r=>r.id)};});
   const reportPlan=reportActionPlan(state);
-  const actItems=reportPlan.report?reportPlan.actions.map(x=>({...x,src:x.sourceKind+' · '+x.priority})): [...(aAll.actions||[]).map(x=>({...x,src:x.key==='high-impr-low-ctr'?'SEO':'GEO'})),...(aAll.seoActions||[]).map(x=>({...x,src:'SEO'}))].sort((p,q)=>((q.ids||[]).length)-((p.ids||[]).length));
-  const statusOf=x=>{const st=(state.actionStates||{})[x.key];if(!st)return 'todo';if(st.status==='retest'){const items=state.tasks.filter(t=>t.batchId===st.retestBatchId);const running=items.some(t=>['queued','running'].includes(t.status));return running?'retest':'retest-done';}return st.status;};
+  const actItems=reportPlan.report?reportPlan.actions.map(x=>({...x,src:x.sourceKind})):state.records.length?[...(aAll.actions||[]).map(x=>({...x,src:x.key==='high-impr-low-ctr'?'SEO':'GEO'})),...(aAll.seoActions||[]).map(x=>({...x,src:'SEO'}))].sort((p,q)=>((q.ids||[]).length)-((p.ids||[]).length)):[];
+  const statusOf=x=>{const st=(state.actionStates||{})[x.key];if(!st)return 'todo';if(st.status==='retest'){const items=state.tasks.filter(t=>t.batchId===st.retestBatchId);if(items.some(t=>['queued','running'].includes(t.status)))return 'retest';return items.length&&items.every(t=>t.status==='completed')?'retest-done':'retest-attention';}return st.status;};
   const retestEffect=st=>{if(!st||!st.retestBatchId)return null;const base=analyse(state,{cbatch:st.baseBatchId}),re=analyse(state,{cbatch:st.retestBatchId});if(!base.geo.length||!re.geo.length)return null;return {before:Math.round(100*base.entity.ours/base.geo.length),after:Math.round(100*re.entity.ours/re.geo.length),date:(byBatch.find(b=>b.id===st.retestBatchId)||{}).date||''};};
   const markDone=x=>perform(()=>act({type:'action.status',key:x.key,status:'done'}));
   const doRetest=x=>perform(async()=>{const r=await call('action',{type:'action.retest',key:x.key});await refresh();await call('batch-start',{id:r.batchId});await refresh();setMessage('已创建复测批次并开始采集；跑完后这里显示前后对比。');});
@@ -1124,27 +1150,18 @@ function createApplication(React,logic){
   };
   let content;
   if(view==='action'){
-   const hasData=state.records.length>0||state.tasks.length>0;
-   if(!hasData){
-    content=h(React.Fragment,null,
-     header('行动','把 AI 回答变成可执行的增长动作'),
-     card('三步开始',null,h('div',{className:'sg-stack'},
-      h('p',null,'① 配品牌：告诉工作台你的品牌名、官网和同名实体。'),
-      h('p',null,'② 连浏览器：安装扩展并登录各 AI 平台。'),
-      h('p',null,'③ 跑第一批：30 题以内，勾选平台后开始采集。'),
-      h('div',{className:'sg-row'},button('去设置品牌',()=>go('settings'),true),button('去采集',()=>go('collect'))))));
-   }else{
-   const lastB=(state.batches||[]).at(-1);
-   const lastGeoDate=aAll.geo.map(r=>r.date).filter(Boolean).sort().at(-1)||'';
-   const sub=(state.brand.name||'未配置品牌')+' · 数据截至 '+(lastGeoDate?String(lastGeoDate).slice(0,10):'—')+(lastB?' · 最近一批 '+lastB.questions.length+' 题 × '+lastB.platformIds.length+' 平台（'+new Date(lastB.createdAt).toISOString().slice(0,10)+'）':'');
    const todoItems=[];
    if(pendingRecords.length)todoItems.push(h('span',{className:'sg-todo-item',key:'p'},h('b',null,'待核对 '+pendingRecords.length+' 条'),button('去核对',()=>{setEvEntity('pending');setFilter({});setLastEvidence([]);setAnalysisTab('records');go('evidence');},false,busy,'sm')));
    if(failedTasks.length){const byPlat={};failedTasks.forEach(t=>byPlat[t.platformName]=(byPlat[t.platformName]||0)+1);todoItems.push(h('span',{className:'sg-todo-item',key:'f'},h('b',null,'采集失败 '+failedTasks.length+' 条'),h('span',{className:'sg-muted'},Object.entries(byPlat).map(([k,v])=>k+' '+v).join(' · ')),button('去处理',()=>go('collect'),false,busy,'sm')));}
    if(loginPlatforms.length)todoItems.push(h('span',{className:'sg-todo-item',key:'l'},h('b',null,'需要登录'),h('span',{className:'sg-muted'},loginPlatforms.join('、')),button('去连接',()=>go('collect'),false,busy,'sm')));
-   const todoBar=todoItems.length?h('div',{className:'sg-todo'},h('span',{style:{flex:'none',display:'flex'}},icon('warn')),...todoItems):null;
+   const cancelledBatches=new Set(Object.values(state.actionStates||{}).map(x=>x.cancelledRetestBatchId).filter(Boolean));
+   const runningBatches=new Set(state.tasks.filter(t=>t.status==='running').map(t=>t.batchId));
+   const queued=state.tasks.filter(t=>t.status==='queued'&&!runningBatches.has(t.batchId)&&!cancelledBatches.has(t.batchId)).length;
+   if(queued)todoItems.push(h('span',{className:'sg-todo-item',key:'queue'},h('b',null,'采集等待启动 '+queued+' 条'),button('查看采集任务',()=>go('collect'),false,busy,'sm')));
+   const completed=x=>['done','retest-done'].includes(statusOf(x));
    const actionRow=(x,done)=>{
     const st=statusOf(x),stRec=(state.actionStates||{})[x.key];
-    const num=actItems.filter(item=>statusOf(item)!=='done').indexOf(x)+1;
+    const num=actItems.filter(item=>!completed(item)).indexOf(x)+1;
     const eff=st==='retest-done'&&stRec?retestEffect(stRec):null;
     return h('div',{className:'sg-act'+(done?' done':''),key:x.key},
      h('span',{className:'sg-n'},done?icon('check'):String(num)),
@@ -1154,9 +1171,9 @@ function createApplication(React,logic){
       x.do?h('p',null,h('b',{className:'sg-ink2'},'做法：'),x.do):null,
       x.retest?h('p',null,h('b',{className:'sg-ink2'},'复测目标：'),x.retest):null,
       eff?h('div',{className:'sg-effect'},h('span',null,h('small',{className:'sg-muted'},'行动前'),h('b',null,eff.before+'%')),h('span',{className:'sg-arrow'},'→ 我方提及率 →'),h('span',null,h('small',{className:'sg-muted'},'复测'+(eff.date?'（'+String(eff.date).slice(5)+'）':'')),h('b',{className:'sg-ok'},eff.after+'%'))):null,
-      h('div',{className:'sg-meta'},pill('src',x.src),x.sourceReportId?h('span',{className:'sg-muted'},'报告 '+String(x.sourceAt||'').slice(0,10)+' · '+String(x.sourceReportId).slice(0,8)):null,stRec?.doneAt?h('span',{className:'sg-muted'},String(stRec.doneAt).slice(0,10)+' 完成'):null,stRec?.startedAt?h('span',{className:'sg-muted'},'复测发起于 '+String(stRec.startedAt).slice(0,10)):null)),
+      h('div',{className:'sg-meta'},x.priority?pill('todo',x.priority):null,pill('src',x.src),x.sourceReportId?h('span',{className:'sg-muted'},'报告 '+String(x.sourceAt||'').slice(0,10)+' · '+String(x.sourceReportId).slice(0,8)):null,stRec?.doneAt?h('span',{className:'sg-muted'},String(stRec.doneAt).slice(0,10)+' 完成'):null,stRec?.startedAt?h('span',{className:'sg-muted'},'复测发起于 '+String(stRec.startedAt).slice(0,10)):null)),
      h('div',{className:'sg-ctl'},
-      st==='todo'?pill('todo','待做'):st==='done'?pill('done','已做','check'):st==='retest'?pill('retest','复测中','clock'):pill('done','已复测','check'),
+      st==='todo'?pill('todo','待做'):st==='done'?pill('done','已做','check'):st==='retest'?pill('retest','复测中','clock'):st==='retest-attention'?pill('todo','复测待处理'):pill('done','已复测','check'),
       h('div',{className:'sg-row'},
        (x.ids||[]).length?button('证据 '+new Set(x.ids).size,()=>showEvidence(x.ids),false,false,'sm'):null,
        x.sourceOpenId?button('来源报告',()=>{setOpenHist(x.sourceOpenId);go('reports');},false,false,'sm'):null,
@@ -1164,12 +1181,18 @@ function createApplication(React,logic){
        st==='done'?button('恢复待做',()=>perform(()=>act({type:'action.status',key:x.key,status:'todo'})),false,busy,'sm'):null,
        st==='done'&&x.sourceKind!=='SEO'?button('复测',()=>doRetest(x),false,busy,'sm'):null,
        st==='done'&&x.sourceKind==='SEO'?button('生成新报告',()=>go('reports'),false,busy,'sm'):null,
-       st==='retest'?button('取消复测',()=>cancelRetest(x),false,busy,'sm'):null,
+       st==='retest-attention'?button('查看复测任务',()=>go('collect'),false,busy,'sm'):null,
+       ['retest','retest-attention'].includes(st)?button('取消复测',()=>cancelRetest(x),false,busy,'sm'):null,
        st==='retest-done'?button('再次复测',()=>doRetest(x),false,busy,'sm'):null)));
    };
-   const openItems=actItems.filter(x=>statusOf(x)!=='done');
-   const doneItems=actItems.filter(x=>statusOf(x)==='done');
-   const actionsBody=actItems.length?h('div',null,openItems.map(x=>actionRow(x,false)),doneItems.length?h('details',{className:'sg-dt'},h('summary',null,'已完成 '+doneItems.length+' 项'),doneItems.map(x=>actionRow(x,true))):null):empty('当前没有待办行动。积累样本后这里会列出带证据的下一步。');
+   const openItems=actItems.filter(x=>!completed(x));
+   const doneItems=actItems.filter(completed);
+   const actionsBody=openItems.length?h('div',null,openItems.map(x=>actionRow(x,false)))
+    :h('div',{className:'sg-stack'},h('p',{className:'sg-muted'},actItems.length?'当前报告行动已完成。':'暂无报告行动。完成采集或导入资料后生成报告。'),h('div',{className:'sg-row'},button('去采集或导入',()=>go('collect')),button('去生成报告',()=>go('reports'),true)));
+   const doneBody=doneItems.length?h('div',{className:'sg-done-list'},doneItems.map(x=>h('div',{className:'sg-done-item',key:x.key},
+    h('div',null,h('b',null,x.title),h('small',{className:'sg-muted'},(x.sourceKind||x.src||'')+' · '+String(state.actionStates?.[x.key]?.doneAt||'').slice(0,10))),
+    button('恢复待做',()=>perform(()=>act({type:'action.status',key:x.key,status:'todo'})),false,busy,'sm'))))
+    :h('p',{className:'sg-muted'},'还没有已完成任务。');
    const acts=aAll.activities||[];
    const saveActivity=()=>perform(async()=>{await act({type:'activity.add',category:actDraft.type,channel:actDraft.channel,url:actDraft.url,title:actDraft.title,note:actDraft.note,actionKey:actDraft.actionKey});setActDraft({type:'帖子',channel:'',url:'',title:'',note:'',actionKey:''});setActOpen(false);setMessage('已记录。AI 引用到该链接时会在证据页标绿。');});
    const fetchActTitle=async u=>{if(!u||actDraft.title)return;try{const r=await call('fetch-title',{url:u});if(r.title)setActDraft(d=>d.title?d:{...d,title:r.title});}catch{}};
@@ -1181,8 +1204,8 @@ function createApplication(React,logic){
      field('渠道',h('input',{'aria-label':'渠道',value:actDraft.channel,placeholder:'知乎 / B 站 / 官网',onChange:e=>setActDraft(d=>({...d,channel:e.target.value}))})),
      field('关联行动',select(actDraft.actionKey,v=>setActDraft(d=>({...d,actionKey:v})),[['','无'],...actItems.map(x=>[x.key,(statusOf(x)==='done'?'已做':'#'+(actItems.filter(item=>statusOf(item)!=='done').indexOf(x)+1))+' '+String(x.title).slice(0,18)])],'关联行动'))),
     h('div',{className:'sg-row'},button('保存',saveActivity,true,busy||!actDraft.title.trim(),'sm'))):null;
-   const activityCard=cardWithAction('这周做了什么','发了帖子、改了官网，记一条；AI 引用了会标出来',
-    h('div',null,
+   const activitySection=h('div',{className:'sg-activity-section'},
+    h('div',{className:'sg-row sg-activity-head'},h('div',null,h('h3',null,'这周做了什么'),h('p',{className:'sg-muted'},'记录已发布或已完成的动作')),button(actOpen?'收起':'+ 记一条',()=>setActOpen(!actOpen),false,busy,'sm')),
      actForm,
      acts.length?h('div',{className:'sg-list'},acts.slice(0,8).map(av=>{
       const related=av.actionKey?actItems.find(x=>x.key===av.actionKey):null;
@@ -1194,38 +1217,17 @@ function createApplication(React,logic){
        h('span',{style:{flex:1}}),
        (av.citedBy||[]).length?h('span',{className:'sg-ok'},'✓ 已被 AI 引用 '+av.citedBy.length+' 次'):h('span',{className:'sg-muted'},'尚未被引用'),
        button('删除',()=>perform(()=>act({type:'activity.delete',id:av.id})),false,busy,'sm'));
-     })):h('p',{className:'sg-muted'},'还没有记录。发了帖子、改了官网，先记一条。')),
-    button(actOpen?'收起':'+ 记一条',()=>setActOpen(!actOpen),false,busy,'sm'));
-   const recentCard=cardWithAction('最近采集',null,
-    h('div',null,
-     (state.batches||[]).length?h('div',{className:'sg-list'},batches.slice(-3).reverse().map(b=>h('div',{className:'sg-li',key:b.id},
-      h('div',{style:{flex:'1 1 auto',minWidth:0}},
-       h('a',{href:'#',onClick:e=>{e.preventDefault();setFilter({cbatch:b.id});setLastEvidence([]);setEvEntity('');setEvQuery('');setAnalysisTab('records');go('evidence');}},b.name),
-       h('div',{className:'sg-bar',style:{margin:'6px 0 4px'}},h('i',{style:{width:(b.total?Math.round(100*b.done/b.total):0)+'%'}})),
-       h('span',{className:'sg-muted',style:{fontSize:'12px'}},b.done+'/'+b.total+' 已成结果'+(b.failed?' · '+b.failed+' 失败':'')+(b.pendingIds.length?' · '+b.pendingIds.length+' 待核对':'')))))):h('p',{className:'sg-muted'},'还没有采集批次。')),
-    button('新建采集',()=>go('collect'),false,busy,'sm'));
-   const cur=byBatch[byBatch.length-1],prv=byBatch[byBatch.length-2];
-   const pctOf=(b,k)=>b&&b.total?Math.round(100*b[k]/b.total):null;
-   const platRival=bid=>{const m={};for(const r of state.records){if(r.kind!=='geo'||!r.eligible||r.invalidatedAt||taskBatchMap.get(r.taskId)!==bid)continue;const p=r.platform||'未标注';const e=m[p]||(m[p]={t:0,r:0});e.t++;if((r.entityEffective||r.entity)==='rival')e.r++;}return m;};
-   let hijackNote='';
-   if(cur&&prv){const c1=platRival(cur.id),c0=platRival(prv.id);let best=null;for(const p of Object.keys(c1)){const v1=c1[p].t?c1[p].r/c1[p].t:0,v0=(c0[p]&&c0[p].t)?c0[p].r/c0[p].t:0;const d=v1-v0;if(!best||d>best.d)best={p,d};}if(best&&best.d>0.001)hijackNote='（'+best.p+' 加重）';}
-   const officialDomainsOf=bid=>{const set=new Set();for(const r of state.records){if(r.kind!=='geo'||!r.eligible||r.invalidatedAt||taskBatchMap.get(r.taskId)!==bid)continue;for(const u of r.citations||[]){if(isOfficialCitation(u,state.brand)){try{set.add(new URL(canonicalUrl(u)).hostname.replace(/^www\./,''));}catch{}}}}return set;};
-   const newDomains=cur?[...officialDomainsOf(cur.id)].filter(d=>!byBatch.slice(0,-1).some(b=>officialDomainsOf(b.id).has(d))):[];
-   const aiRefs=aAll.seoBoard.aiReferrers||[];const aiTotal=aiRefs.reduce((t,x)=>t+x.visits,0);
-   const changeCard=card('最近批次观察','两批题目和平台可能不同，仅供描述，不代表增长效果',
-    h('div',null,
-     h('div',{className:'sg-kv'},h('span',null,'我方提及率'),h('b',null,cur&&prv?pctOf(prv,'ours')+'% → '+pctOf(cur,'ours')+'%':'积累两个批次后可见')),
-     h('div',{className:'sg-kv'},h('span',null,'同名劫持'),h('b',null,cur&&prv?pctOf(prv,'rival')+'% → '+pctOf(cur,'rival')+'%'+hijackNote:'—')),
-     h('div',{className:'sg-kv'},h('span',null,'新增进入引用的官方域名'),h('b',null,newDomains.length?newDomains.join('、'):'无新增')),
-     h('div',{className:'sg-kv'},h('span',null,'AI 平台引荐访问'),h('b',null,aiTotal?aiTotal+' 次'+(aiRefs[0]?'（最多 '+aiRefs[0].name+'）':''):'—'))));
+     })):h('p',{className:'sg-muted'},'还没有记录。发了帖子、改了官网，先记一条。'));
+   const progressBody=h('div',null,
+    h('div',{className:'sg-progress-tabs',role:'tablist','aria-label':'任务进度'},
+     [['pending','待办 '+todoItems.length],['done','已完成 '+doneItems.length]].map(([id,label])=>h('button',{key:id,type:'button',role:'tab','aria-selected':actionFilter===id,onClick:()=>setActionFilter(id)},label))),
+    actionFilter==='pending'?(todoItems.length?h('div',{className:'sg-task-list'},...todoItems):h('p',{className:'sg-muted'},'暂无待处理的采集或核对任务。')):doneBody,
+    activitySection);
    content=h(React.Fragment,null,
-    header('行动',sub,button('看板',()=>go('board')),button('新建采集',()=>go('collect'),true)),
-    todoBar,
-    kpiRow(aAll,byBatch,pendingRecords.length),
-    h('div',{className:'sg-cols sg-g2'},
-     cardWithAction('下一步行动',reportPlan.report?'依据最新已完成 GEO / SEO 报告 · '+reportPlan.actions.length+' 项':'尚无已完成报告，暂显示规则提醒',actionsBody,h('div',{className:'sg-row',style:{marginTop:'10px'}},button('查看最新报告',()=>{setOpenHist(reportPlan.report?.parentId||reportPlan.report?.id||null);go('reports');},false,!reportPlan.report,'sm'),button('生成本周报告 →',()=>go('reports'),false,false,'sm'))),
-     h('div',{className:'sg-stack'},activityCard,recentCard,changeCard)));
-   }
+    header('行动','处理待办、执行报告建议，并记录完成情况',button('查看看板',()=>go('board')),button('新建采集',()=>go('collect'),true)),
+    h('div',{className:'sg-action-layout'},
+     cardWithAction('下一步行动',reportPlan.report?'依据最新已完成 GEO / SEO 报告 · '+openItems.length+' 项待做':actItems.length?'尚无已完成报告，暂显示规则提醒':'生成报告后，这里会列出下一步行动',actionsBody,h('div',{className:'sg-row'},button('查看报告',()=>{setOpenHist(reportPlan.report?.parentId||reportPlan.report?.id||null);go('reports');},false,!reportPlan.report,'sm'),button('生成报告',()=>go('reports'),false,false,'sm'))),
+     card('任务进度',null,progressBody)));
   }
   if(view==='board'){
    const bf={};if(boardRange!=='all')bf.from=new Date(Date.now()-(Number(boardRange)-1)*864e5).toISOString().slice(0,10);
@@ -1468,40 +1470,66 @@ function createApplication(React,logic){
     askCard);
   }
   if(view==='settings'){
-   const copyText=async text=>{try{await navigator.clipboard.writeText(text);setMessage('已复制');}catch{setMessage('复制失败，请选中文本手动复制');}};
+   const copyText=async text=>{try{await navigator.clipboard.writeText(text);setExtensionFeedback('已复制，请在对应窗口粘贴。');}catch{setExtensionFeedback('复制失败，请选中文本手动复制。');}};
    const manager={chrome:'chrome://extensions',edge:'edge://extensions',brave:'brave://extensions'}[browserChoice]||'';
    const readyN=state.platforms.filter(p=>p.enabled&&p.status==='ready').length;
    const loginN=state.platforms.filter(p=>p.enabled&&p.status!=='ready'&&(loginPlatforms.includes(p.name)||(p.lastTestAt&&!p.testOk))).length;
    const untestedN=state.platforms.filter(p=>p.enabled&&p.status!=='ready').length-loginN;
-   const browserGuide=panel('浏览器与扩展',
+   const connectionStatus=chromeInfo?.requiresReload?'扩展需要重新加载':chromeInfo?.connected?'已连接':'未连接';
+   const brandReady=!!(state.brand.name&&(state.brand.officialUrl||state.brand.domain));
+   const setup=panel('初始化引导',h('p',{className:'sg-muted'},'按顺序完成以下三步。保存和连接结果会显示在对应操作旁；以后也可以回到设置继续。'),
+    h('ol',{className:'sg-setup'},
+     h('li',null,h('div',null,h('b',null,'保存品牌信息'),h('p',{className:'sg-muted'},brandReady?'已配置：'+state.brand.name:'必填品牌名称、官网和至少一个别名；其余信息可稍后补充。')),button(brandReady?'查看品牌':'填写品牌',()=>scrollSetup(setupBrandRef),!brandReady)),
+     h('li',null,h('div',null,h('b',null,'安装并连接浏览器'),h('p',{className:'sg-muted'},connectionStatus+' · 在下方获取目录，安装扩展并粘贴连接码。')),button('前往浏览器设置',()=>scrollSetup(setupBrowserRef))),
+     h('li',null,h('div',null,h('b',null,'登录平台并试采'),h('p',{className:'sg-muted'},readyN?readyN+' 个平台已通过自检，可到采集页建立批次。':'到采集页打开目标平台、登录并自检；建议先跑 1 题。')),button('去平台试采',()=>go('collect'),false,!brandReady))),
+    h('p',{className:'sg-note'},'已有回答或 SEO 数据？也可以在「采集」页导入资料开始分析。'));
+   const browserGuide=h('div',{ref:setupBrowserRef},panel('浏览器与扩展',
     h('p',null,'采集复用你已登录 AI 网站的浏览器。扩展只操作工作台创建的采集标签页；连接成功后逐平台自检。'),
-    h('div',{className:'sg-row',style:{marginBottom:'8px'}},
-     h('span',{className:'sg-muted'},'平台自检：'+readyN+' 通过 · '+loginN+' 需登录 · '+Math.max(0,untestedN)+' 未自检'),
-     button('全部自检',testAll,false,busy||!state.platforms.some(p=>p.enabled),'sm'),
-     button('管理平台与勾选',()=>go('collect'),false,busy,'sm')),
+    h('p',{className:'sg-note'},'平台自检：'+readyN+' 通过 · '+loginN+' 需登录 · '+Math.max(0,untestedN)+' 未自检'),
     field('使用的浏览器',select(browserChoice,setBrowserChoice,[['chrome','Google Chrome'],['edge','Microsoft Edge（兼容待实机验收）'],['brave','Brave（实验兼容）'],['other','Firefox / Safari / 其他']],'使用的浏览器')),
     browserChoice==='other'?h('div',null,h('p',{className:'sg-note'},'Firefox 和 Safari 暂不支持自动采集扩展。可以到「采集」页导入已有回答继续分析，无需更换日常浏览器。'),button('去导入已有回答',()=>go('collect'),true)):
-    h('ol',null,
-     h('li',null,h('b',null,'获取扩展目录'),h('p',null,'点击下方按钮获取随工作台安装的扩展目录和本机连接码。'),button('获取扩展目录和连接码',()=>perform(async()=>setChromeInfo(await call('chrome-connection'))),true,busy)),
-     h('li',null,h('b',null,'安装浏览器扩展'),h('p',null,'在已登录 AI 网站的浏览器个人资料中打开 '+manager+'，开启「开发者模式」，点击「加载已解压的扩展程序」，选择第1步目录。'),button('复制扩展管理页地址',()=>copyText(manager))),
-     h('li',null,h('b',null,'配对工作台'),h('p',null,'点击浏览器工具栏的「DSH SEO GEO · 浏览器连接」，粘贴连接码并连接。扩展会申请网页和截图权限；连接码仅供这台电脑使用，不要对外分享。')),
-     h('li',null,h('b',null,'检查连接并试采'),h('p',null,'检查连接后，到「采集」页对目标平台点「打开 / 登录」，再点「自检」。确认能取得真实回答后再创建批次。'),button('检查连接',()=>perform(async()=>setChromeInfo(await call('chrome-connection'))),false,busy),button('去平台试采',()=>go('collect')))),
-    chromeInfo&&h('div',null,h('p',{role:'status',className:'sg-note'},chromeInfo.requiresReload?'扩展版本不匹配，请到扩展管理页点「重新加载」，再检查连接。':chromeInfo.connected?'浏览器已连接。请继续检查平台登录和试采结果。':'尚未连接。请完成安装、粘贴连接码和授权，再点检查连接。'),field('扩展目录',h('input',{readOnly:true,value:chromeInfo.extensionPath})),button('复制扩展目录',()=>copyText(chromeInfo.extensionPath)),field('本机连接码',h('textarea',{readOnly:true,value:chromeInfo.connection})),button('复制连接码',()=>copyText(chromeInfo.connection)),button('断开浏览器',()=>perform(async()=>{await call('chrome-disconnect');setChromeInfo(null);}))),
-    h('details',null,h('summary',null,'连接不上或没有采到回答？'),h('ul',null,h('li',null,'检查是否在已登录目标网站的同一个浏览器个人资料中安装扩展。'),h('li',null,'DSH 和浏览器都需要保持运行。重启后先检查连接，失效时重新配对。'),h('li',null,'遇到登录或验证码，请在浏览器手动完成后重试失败项。'),h('li',null,'切换浏览器前先断开当前连接；同一时刻只连接一个浏览器实例。'),h('li',null,'扩展升级后需要重新加载。Firefox / Safari 可先走资料导入。'))));
+    h('ol',{className:'sg-install'},
+     h('li',null,h('b',null,'获取扩展目录'),h('p',null,'点击后会在本步骤下方显示完整目录和本机连接码。'),button(extensionBusy?'正在获取…':'获取扩展目录和连接码',getExtension,true,busy),
+      showExtension&&h('div',{ref:extensionResultRef,className:'sg-extension-result','aria-label':'扩展目录和连接码'},
+       h('p',{role:'status'},extensionFeedback),
+       chromeInfo&&!extensionBusy&&h('div',{className:'sg-stack'},
+        h('p',{className:'sg-note'},chromeInfo.extensionAvailable===true?'扩展文件校验通过 · v'+chromeInfo.extensionVersion:chromeInfo.extensionAvailable===false?chromeInfo.extensionError:'当前服务未提供文件校验，请重新加载工作台服务后再试。'),
+        field('扩展目录',h('textarea',{'aria-label':'扩展目录',rows:3,readOnly:true,value:chromeInfo.extensionPath||''})),button('复制扩展目录',()=>copyText(chromeInfo.extensionPath),false,!chromeInfo.extensionPath),
+        chromeInfo.extensionAvailable!==false&&h('div',null,field('本机连接码',h('textarea',{'aria-label':'本机连接码',rows:3,readOnly:true,value:chromeInfo.connection||''})),button('复制连接码',()=>copyText(chromeInfo.connection),false,!chromeInfo.connection)),
+        h('p',{className:'sg-note'},'连接码仅供本机扩展使用，请勿对外分享。')))),
+     h('li',null,h('b',null,'安装浏览器扩展'),h('p',null,'在已登录 AI 网站的浏览器中打开 '+manager+'，开启「开发者模式」，点击「加载未打包的扩展程序」（部分版本显示「加载已解压的扩展程序」）。'),button('复制扩展管理页地址',()=>copyText(manager)),
+      h('div',{className:'sg-install-help'},h('b',null,'Mac 找不到目录？'),h('p',null,'在弹出的文件夹选择窗口按 ⌘⇧G（Command + Shift + G），粘贴第 1 步的完整扩展目录，按回车，再点「选择」。Library 和 .generations 等目录默认隐藏，不需要逐层寻找。'),
+       h('p',null,'Windows：在文件夹选择窗口的地址栏粘贴完整目录，按回车，再点「选择文件夹」。'),
+       h('p',null,'选择 chrome-extension 文件夹本身，它里面应有 manifest.json；不要选择工作台父目录、单个文件或 tgz 安装包。安装成功后，扩展列表会出现「DSH SEO GEO · 浏览器连接」。'))),
+     h('li',null,h('b',null,'配对工作台'),h('p',null,'点击浏览器工具栏的拼图图标，打开「DSH SEO GEO · 浏览器连接」，粘贴第 1 步连接码，点击「连接并允许采集」并确认权限。')),
+     h('li',null,h('b',null,'检查连接并试采'),h('p',null,'检查后，到「采集」页对目标平台点「打开 / 登录」，再点「自检」。取得真实回答后再创建批次。'),
+      h('div',{className:'sg-row'},button('检查连接',checkConnection,false,busy),button('去平台试采',()=>go('collect')),chromeInfo?.connected&&button('断开浏览器',()=>perform(async()=>{await call('chrome-disconnect');setChromeInfo(null);setShowExtension(false);setExtensionFeedback('浏览器已断开。重新连接时请重新获取连接码。');}))),
+      h('p',{role:'status',className:'sg-note'},extensionFeedback||connectionStatus))),
+    h('details',null,h('summary',null,'连接不上或没有采到回答？'),h('ul',null,
+     h('li',null,'找不到目录：先按上面的 Mac / Windows 方法直接定位；目录仍不存在时重新获取。'),
+     h('li',null,'提示清单缺失：确认选中的是包含 manifest.json 的 chrome-extension 文件夹；文件校验失败时重新安装完整工作台包。'),
+     h('li',null,'安装成功但未连接：在同一浏览器个人资料中打开扩展并粘贴本机连接码。DSH 和浏览器都要保持运行。'),
+     h('li',null,'遇到登录或验证码，请在浏览器手动完成后再重试。'),
+     h('li',null,'升级工作台后重新获取目录；若路径改变，请移除旧扩展并加载新目录，随后重新配对。路径未变时可点扩展的重新加载。'),
+     h('li',null,'切换浏览器前先断开当前连接；同一时刻只连接一个浏览器实例。')))));
    const credsPanel=panel('数据源自动同步',h('p',{className:'sg-muted'},'粘贴 Key 后直接点「同步」即可，会自动保存凭证。凭证只存在本机项目目录 work/monitor-v3/state.json，不上传。每次同步生成一个资料库批次，自动去重，可撤销。'),h('details',{className:'sg-integration',open:!state.credStatus?.bingApiKey},h('summary',null,'Bing 站长工具 · '+(state.credStatus?.bingApiKey?'已配置':'待配置')),h('div',{className:'sg-grid'},field('API Key（'+(state.credStatus?.bingApiKey?'已保存':'未保存')+'）',input(credForm.bingApiKey,v=>setCredForm(f=>({...f,bingApiKey:v})),'Bing API Key','password')),field('站点地址（留空默认官网域名）',input(credForm.bingSiteUrl,v=>setCredForm(f=>({...f,bingSiteUrl:v})),'https://your-brand.example/'))),h('div',{className:'sg-toolbar'},button('保存 Bing 凭证',()=>perform(async()=>{await call('creds-save',{bingApiKey:credForm.bingApiKey,bingSiteUrl:credForm.bingSiteUrl});setCredForm(f=>({...f,bingApiKey:'',bingSiteUrl:''}));await refresh();setMessage('Bing 凭证已保存。');}),false,busy||(!credForm.bingApiKey.trim()&&!credForm.bingSiteUrl.trim())),button('同步 Bing 搜索数据',()=>perform(async()=>{if(credForm.bingApiKey.trim()||credForm.bingSiteUrl.trim())await call('creds-save',{bingApiKey:credForm.bingApiKey,bingSiteUrl:credForm.bingSiteUrl});const r=await call('bing-sync',{});setCredForm(f=>({...f,bingApiKey:'',bingSiteUrl:''}));await refresh();setMessage(`Bing 同步完成：新增 ${r.added} 条，跳过重复 ${r.duplicates} 条${r.note?'；'+r.note:''}。`);}),true,busy||(!state.credStatus?.bingApiKey&&!credForm.bingApiKey.trim())),state.credStatus?.bingApiKey&&button('清除 Bing Key',()=>perform(async()=>{await call('creds-save',{clear:['bingApiKey']});await refresh();setMessage('已清除 Bing Key。');}),false,busy)),lastSync('Bing')),h('details',{className:'sg-integration'},h('summary',null,'Cloudflare · '+(state.credStatus?.cfToken?'已配置':'待配置')),h('div',{className:'sg-grid'},field('API Token（'+(state.credStatus?.cfToken?'已保存':'未保存')+'）',input(credForm.cfToken,v=>setCredForm(f=>({...f,cfToken:v})),'Cloudflare API Token','password')),field('Zone ID（留空自动识别）',input(credForm.cfZoneId,v=>setCredForm(f=>({...f,cfZoneId:v})),'控制台选择域名后右下角 API 区域'))),h('div',{className:'sg-toolbar'},button('保存 Cloudflare 凭证',()=>perform(async()=>{await call('creds-save',{cfToken:credForm.cfToken,cfZoneId:credForm.cfZoneId});setCredForm(f=>({...f,cfToken:'',cfZoneId:''}));await refresh();setMessage('Cloudflare 凭证已保存。');}),false,busy||(!credForm.cfToken.trim()&&!credForm.cfZoneId.trim())),button('同步 Cloudflare 流量',()=>perform(async()=>{if(credForm.cfToken.trim()||credForm.cfZoneId.trim())await call('creds-save',{cfToken:credForm.cfToken,cfZoneId:credForm.cfZoneId});const r=await call('cf-sync',{});setCredForm(f=>({...f,cfToken:'',cfZoneId:''}));await refresh();setMessage(`Cloudflare 同步完成：新增 ${r.added} 条，跳过重复 ${r.duplicates} 条${r.note?'；'+r.note:''}。`);}),true,busy||!state.credStatus?.cfToken&&!credForm.cfToken.trim()),state.credStatus?.cfToken&&button('清除 Cloudflare Token',()=>perform(async()=>{await call('creds-save',{clear:['cfToken','cfZoneId']});await refresh();setMessage('已清除 Cloudflare Token。');}),false,busy)),lastSync('Cloudflare')),h('details',{className:'sg-integration'},h('summary',null,'Google Search Console · '+(state.credStatus?.gscJson?'已配置':'待配置')),h('p',{className:'sg-muted'},'GSC 没有简单 API Key：在 Google Cloud 创建服务账号并下载 JSON 密钥，把服务账号邮箱加为 GSC 媒体资源用户（Search Console → 设置 → 用户和权限管理 → 添加用户），再把 JSON 完整粘贴到这里。站点地址留空默认 sc-domain:官网域名；URL 前缀类媒体资源请填完整地址（如 https://your-brand.example/）。AI 爬虫（GPTBot 等）明细依赖 Cloudflare 更高阶数据集，当前同步为全站流量总量。'),field('服务账号 JSON 密钥（'+(state.credStatus?.gscJson?'已保存':'未保存')+'）',h('textarea',{'aria-label':'GSC 服务账号 JSON',value:credForm.gscJson,onChange:e=>setCredForm(f=>({...f,gscJson:e.target.value})),rows:4,placeholder:'粘贴密钥文件完整内容，含 client_email 与 private_key'})),field('站点地址（留空默认 sc-domain:官网域名）',input(credForm.gscSiteUrl,v=>setCredForm(f=>({...f,gscSiteUrl:v})),'sc-domain:your-brand.example')),h('div',{className:'sg-toolbar'},button('保存 GSC 凭证',()=>perform(async()=>{await call('creds-save',{gscJson:credForm.gscJson,gscSiteUrl:credForm.gscSiteUrl});setCredForm(f=>({...f,gscJson:'',gscSiteUrl:''}));await refresh();setMessage('GSC 凭证已保存。');}),true,busy||!credForm.gscJson.trim()),state.credStatus?.gscJson&&button('清除 GSC 凭证',()=>perform(async()=>{await call('creds-save',{clear:['gscJson','gscSiteUrl']});await refresh();setMessage('已清除 GSC 凭证。');}),false,busy)),lastSync('Google Search Console')));
    content=h(React.Fragment,null,
-    header('设置','品牌、数据源、浏览器与执行模型'),
+    header('设置','初始化引导、品牌、浏览器与数据源'),
     h('div',{className:'sg-stack'},
-     panel('监测品牌',h('div',{className:'sg-grid'},field('品牌名称',input(brand.name,v=>setBrand(b=>({...b,name:v})),'品牌名称')),field('官方网站',input(brand.officialUrl||'',v=>setBrand(b=>({...b,officialUrl:v})),'官方网站')),field('所属公司',input(brand.organization||'',v=>setBrand(b=>({...b,organization:v})),'所属公司')),field('官方来源（每行一个 HTTPS 链接）',h('textarea',{'aria-label':'官方来源',value:(brand.officialSources||[]).join('\n'),onChange:e=>setBrand(b=>({...b,officialSources:e.target.value.split(/\n/).map(x=>x.trim()).filter(Boolean)}))})),field('同名实体（逗号分隔）',input((brand.entityRivals||[]).join(','),v=>setBrand(b=>({...b,entityRivals:v.split(/[,，]/).map(x=>x.trim()).filter(Boolean)})),'同名实体')),field('品牌别名（逗号分隔）',input(brand.aliases.join(','),v=>setBrand(b=>({...b,aliases:v.split(/[,，]/).map(x=>x.trim())})),'品牌别名')),field('产品竞品（逗号分隔）',input(brand.competitors.join(','),v=>setBrand(b=>({...b,competitors:v.split(/[,，]/).map(x=>x.trim()).filter(Boolean)})),'产品竞品'))),h('div',{className:'sg-toolbar'},button('保存品牌设置',()=>perform(()=>act({type:'brand.save',brand})),true,busy))),
-     credsPanel,
+     setup,
+     h('div',{ref:setupBrandRef},panel('监测品牌',h('div',{className:'sg-grid'},field('品牌名称',input(brand.name,v=>setBrand(b=>({...b,name:v})),'品牌名称')),field('官方网站',input(brand.officialUrl||'',v=>setBrand(b=>({...b,officialUrl:v})),'官方网站')),field('所属公司',input(brand.organization||'',v=>setBrand(b=>({...b,organization:v})),'所属公司')),field('官方来源（每行一个 HTTPS 链接）',h('textarea',{'aria-label':'官方来源',value:(brand.officialSources||[]).join('\n'),onChange:e=>setBrand(b=>({...b,officialSources:e.target.value.split(/\n/).map(x=>x.trim()).filter(Boolean)}))})),field('同名实体（逗号分隔）',input((brand.entityRivals||[]).join(','),v=>setBrand(b=>({...b,entityRivals:v.split(/[,，]/).map(x=>x.trim()).filter(Boolean)})),'同名实体')),field('品牌别名（逗号分隔）',input(brand.aliases.join(','),v=>setBrand(b=>({...b,aliases:v.split(/[,，]/).map(x=>x.trim())})),'品牌别名')),field('产品竞品（逗号分隔）',input(brand.competitors.join(','),v=>setBrand(b=>({...b,competitors:v.split(/[,，]/).map(x=>x.trim()).filter(Boolean)})),'产品竞品'))),h('div',{className:'sg-toolbar'},button(brandFeedback?.status==='saving'?'正在保存…':'保存品牌设置',saveBrand,true,busy)),
+      h('p',{className:'sg-note'},'必填：品牌名称、官方网站、至少一个品牌别名。已有历史记录时不能改成其他品牌。'),
+      brandFeedback&&h('div',{className:'sg-inline-feedback '+brandFeedback.status,role:brandFeedback.status==='error'?'alert':'status'},brandFeedback.text),
+      brandFeedback?.status==='success'&&button('下一步：连接浏览器',()=>scrollSetup(setupBrowserRef),true))),
      browserGuide,
+     credsPanel,
      panel('执行模型',h('p',{className:'sg-note'},'复用 DSH 模型配置，不需要单独填 Key。深入分析、推荐问句与报告追问都使用这里选的模型。'),executionSettings())));
   }
   return h('div',{className:'sg-app'},h('style',null,SG_CSS+SG_CSS2),
    h('aside',{className:'sg-side'},
     h('div',{className:'sg-brand'},h('b',null,'SEO/GEO 工作台'),h('small',null,'DSH Desktop')),
-    h('nav',{className:'sg-nav','aria-label':'工作台导航'},tabs.map(([id,t])=>h('button',{key:id,'aria-current':view===id?'page':null,onClick:()=>go(id)},icon(id),h('span',null,t),id==='action'&&badge?h('span',{className:'sg-badge'},badge):null))),
-    h('div',{className:'sg-side-foot'},h('span',null,'v0.15.4'),h('button',{type:'button',onClick:()=>{if(onClose)onClose();else runtime?.layout?.selectPanel(null);}},'收起工作台'))),
+    h('nav',{className:'sg-nav','aria-label':'工作台导航'},tabs.map(([id,t])=>h('button',{key:id,'aria-label':t,'aria-current':view===id?'page':null,onClick:()=>go(id)},icon(id),h('span',null,t),id==='action'&&badge?h('span',{className:'sg-badge'},badge):null))),
+    h('div',{className:'sg-side-foot'},h('span',null,'v0.15.5'),h('button',{type:'button',onClick:()=>{if(onClose)onClose();else runtime?.layout?.selectPanel(null);}},'收起工作台'))),
    h('main',{className:'sg-main',ref:mainRef},
     message&&h('div',{className:'sg-alert',role:'status'},message),
     busy&&h('p',{className:'sg-muted',role:'status'},'正在处理，请稍候…'),

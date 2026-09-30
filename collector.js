@@ -1,6 +1,6 @@
 import {join,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile,stat} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {publicUrl} from './analysis.js';
 import {ChromeBridge,ChromePage} from './chrome-bridge.js';
@@ -9,10 +9,23 @@ import {access} from 'node:fs/promises';
 
 // This is the product's DSH tool implementation, not a Codex browser driver.
 // Uses the user-approved Chrome extension; no profile files or cookies are read.
+export async function inspectExtension(extensionPath=join(dirname(fileURLToPath(import.meta.url)),'chrome-extension')){
+  try{
+    const manifest=JSON.parse(await readFile(join(extensionPath,'manifest.json'),'utf8'));
+    if(manifest.manifest_version!==3||manifest.background?.service_worker!=='background.js'||manifest.action?.default_popup!=='popup.html')throw Error('manifest.json 的扩展入口不完整');
+    for(const file of ['background.js','popup.html','popup.js','popup.css']){
+      const info=await stat(join(extensionPath,file));
+      if(!info.isFile()||!info.size)throw Error(file+' 缺失或为空');
+    }
+    return {extensionPath,extensionAvailable:true,extensionVersion:manifest.version,hostPlatform:process.platform};
+  }catch(error){
+    return {extensionPath,extensionAvailable:false,hostPlatform:process.platform,extensionError:'扩展文件检查未通过：'+(error.code==='ENOENT'?'安装目录缺少必需文件':error.message)+'。请重新安装完整工作台包后再获取目录。'};
+  }
+}
 export class Collector {
   constructor(store){this.store=store;this.pages=new Map();this.runners=new Map();this.bridge=new ChromeBridge({statePath:join(store.root,'work','monitor-v3','.chrome-bridge.json')});}
   async close(){await this.bridge.close();this.pages.clear();}
-  async connection(){return {...await this.bridge.pairing(),extensionPath:join(dirname(fileURLToPath(import.meta.url)),'chrome-extension')};}
+  async connection(){const extension=await inspectExtension();return {...await this.bridge.pairing(),...extension};}
   async open(platform,{automated=false}={}){
     const url=publicUrl(platform.url);
     if(this.bridge.connected()){const contextId=platform.taskId||'manual',page=new ChromePage(this.bridge,contextId);await page.goto(url);this.pages.set(contextId,page);return {url:page.url(),message:'已在已连接的浏览器个人资料中打开新采集标签页，复用该账号已有登录状态。'};}
