@@ -959,13 +959,13 @@ function createApplication(React,logic){
   });
   const getExtension=()=>perform(async()=>{
    setShowExtension(true);setExtensionBusy(true);setExtensionFeedback('正在检查扩展文件并获取本机连接码…');
-   try{const info=await call('chrome-connection');setChromeInfo(info);setExtensionFeedback(info.extensionAvailable===false?info.extensionError:'已获取扩展目录和连接码，请按第 2 步安装。');}
+   try{const info=await call('chrome-connection');setChromeInfo(info);setExtensionFeedback(info.extensionAvailable===false?info.extensionError:'已获取扩展目录和连接码，请回到第 1 步加载扩展。');}
    catch(e){setChromeInfo(null);setExtensionFeedback('获取失败：'+e.message+'。请确认工作台服务正在运行后重试。');throw e;}
    finally{setExtensionBusy(false);}
   });
   const checkConnection=()=>perform(async()=>{
    setExtensionFeedback('正在检查连接…');
-   try{const info=await call('chrome-connection');setChromeInfo(info);setExtensionFeedback(info.extensionAvailable===false?info.extensionError:info.requiresReload?'扩展版本不匹配，请在扩展管理页重新加载后再检查。':info.connected?'浏览器已连接，可以去平台试采。':'尚未连接：请完成第 2 步安装和第 3 步配对，再检查。');}
+   try{const info=await call('chrome-connection');setChromeInfo(info);setExtensionFeedback(info.extensionAvailable===false?info.extensionError:info.requiresReload?'扩展版本不匹配，请在扩展管理页重新加载后再检查。':info.connected?'浏览器已连接，可以去平台试采。':'尚未连接：请完成第 1 步加载扩展和第 3 步配对，再检查。');}
    catch(e){setExtensionFeedback('检查失败：'+e.message);throw e;}
   });
   const add=()=>perform(async()=>{await act({type:'platform.add',name,url});setName('');setUrl('');setShowAdd(false);setMessage('网站已添加，运行一题测试后可验收采集能力。');});
@@ -1480,7 +1480,7 @@ function createApplication(React,logic){
    const setup=panel('初始化引导',h('p',{className:'sg-muted'},'按顺序完成以下三步。保存和连接结果会显示在对应操作旁；以后也可以回到设置继续。'),
     h('ol',{className:'sg-setup'},
      h('li',null,h('div',null,h('b',null,'保存品牌信息'),h('p',{className:'sg-muted'},brandReady?'已配置：'+state.brand.name:'必填品牌名称、官网和至少一个别名；其余信息可稍后补充。')),button(brandReady?'查看品牌':'填写品牌',()=>scrollSetup(setupBrandRef),!brandReady)),
-     h('li',null,h('div',null,h('b',null,'安装并连接浏览器'),h('p',{className:'sg-muted'},connectionStatus+' · 在下方获取目录，安装扩展并粘贴连接码。')),button('前往浏览器设置',()=>scrollSetup(setupBrowserRef))),
+     h('li',null,h('div',null,h('b',null,'安装并连接浏览器'),h('p',{className:'sg-muted'},connectionStatus+' · 在下方打开扩展管理页，再获取目录并粘贴连接码。')),button('前往浏览器设置',()=>scrollSetup(setupBrowserRef))),
      h('li',null,h('div',null,h('b',null,'登录平台并试采'),h('p',{className:'sg-muted'},readyN?readyN+' 个平台已通过自检，可到采集页建立批次。':'到采集页打开目标平台、登录并自检；建议先跑 1 题。')),button('去平台试采',()=>go('collect'),false,!brandReady))),
     h('p',{className:'sg-note'},'已有回答或 SEO 数据？也可以在「采集」页导入资料开始分析。'));
    const browserGuide=h('div',{ref:setupBrowserRef},panel('浏览器与扩展',
@@ -1489,22 +1489,22 @@ function createApplication(React,logic){
     field('使用的浏览器',select(browserChoice,setBrowserChoice,[['chrome','Google Chrome'],['edge','Microsoft Edge（兼容待实机验收）'],['brave','Brave（实验兼容）'],['other','Firefox / Safari / 其他']],'使用的浏览器')),
     browserChoice==='other'?h('div',null,h('p',{className:'sg-note'},'Firefox 和 Safari 暂不支持自动采集扩展。可以到「采集」页导入已有回答继续分析，无需更换日常浏览器。'),button('去导入已有回答',()=>go('collect'),true)):
     h('ol',{className:'sg-install'},
-     h('li',null,h('b',null,'获取扩展目录'),h('p',null,'点击后会在本步骤下方显示完整目录和本机连接码。'),button(extensionBusy?'正在获取…':'获取扩展目录和连接码',getExtension,true,busy),
+     h('li',null,h('b',null,'安装浏览器扩展'),h('p',null,'先在已登录 AI 网站的浏览器中打开 '+manager+'，开启「开发者模式」，找到「加载未打包的扩展程序」（部分版本显示「加载已解压的扩展程序」）。先不要打开文件夹选择窗口，继续第 2 步。'),button('复制扩展管理页地址',()=>copyText(manager))),
+     h('li',null,h('b',null,'获取扩展目录'),h('p',null,'点击后会在本步骤下方显示完整目录和本机连接码。复制目录后回到扩展管理页，点击「加载未打包的扩展程序」，在文件夹选择窗口粘贴目录。'),button(extensionBusy?'正在获取…':'获取扩展目录和连接码',getExtension,true,busy),
       showExtension&&h('div',{ref:extensionResultRef,className:'sg-extension-result','aria-label':'扩展目录和连接码'},
        h('p',{role:'status'},extensionFeedback),
        chromeInfo&&!extensionBusy&&h('div',{className:'sg-stack'},
         h('p',{className:'sg-note'},chromeInfo.extensionAvailable===true?'扩展文件校验通过 · v'+chromeInfo.extensionVersion:chromeInfo.extensionAvailable===false?chromeInfo.extensionError:'当前服务未提供文件校验，请重新加载工作台服务后再试。'),
         field('扩展目录',h('textarea',{'aria-label':'扩展目录',rows:3,readOnly:true,value:chromeInfo.extensionPath||''})),button('复制扩展目录',()=>copyText(chromeInfo.extensionPath),false,!chromeInfo.extensionPath),
         chromeInfo.extensionAvailable!==false&&h('div',null,field('本机连接码',h('textarea',{'aria-label':'本机连接码',rows:3,readOnly:true,value:chromeInfo.connection||''})),button('复制连接码',()=>copyText(chromeInfo.connection),false,!chromeInfo.connection)),
-        h('p',{className:'sg-note'},'连接码仅供本机扩展使用，请勿对外分享。')))),
-     h('li',null,h('b',null,'安装浏览器扩展'),h('p',null,'在已登录 AI 网站的浏览器中打开 '+manager+'，开启「开发者模式」，点击「加载未打包的扩展程序」（部分版本显示「加载已解压的扩展程序」）。'),button('复制扩展管理页地址',()=>copyText(manager)),
-      h('div',{className:'sg-install-help'},h('b',null,'Mac 找不到目录？'),h('p',null,'在弹出的文件夹选择窗口按 ⌘⇧G（Command + Shift + G），粘贴第 1 步的完整扩展目录，按回车，再点「选择」。Library 和 .generations 等目录默认隐藏，不需要逐层寻找。'),
+        h('p',{className:'sg-note'},'连接码仅供本机扩展使用，请勿对外分享。'))),
+      h('div',{className:'sg-install-help'},h('b',null,'Mac 找不到目录？'),h('p',null,'在加载扩展的文件夹选择窗口按 ⌘⇧G（Command + Shift + G），粘贴本步骤的完整扩展目录，按回车，再点「选择」。Library 和 .generations 等目录默认隐藏，不需要逐层寻找。'),
        h('p',null,'Windows：在文件夹选择窗口的地址栏粘贴完整目录，按回车，再点「选择文件夹」。'),
        h('p',null,'选择 chrome-extension 文件夹本身，它里面应有 manifest.json；不要选择工作台父目录、单个文件或 tgz 安装包。安装成功后，扩展列表会出现「DSH SEO GEO · 浏览器连接」。'))),
-     h('li',null,h('b',null,'配对工作台'),h('p',null,'点击浏览器工具栏的拼图图标，打开「DSH SEO GEO · 浏览器连接」，粘贴第 1 步连接码，点击「连接并允许采集」并确认权限。')),
+     h('li',null,h('b',null,'配对工作台'),h('p',null,'点击浏览器工具栏的拼图图标，打开「DSH SEO GEO · 浏览器连接」，粘贴第 2 步连接码，点击「连接并允许采集」并确认权限。')),
      h('li',null,h('b',null,'检查连接并试采'),h('p',null,'检查后，到「采集」页对目标平台点「打开 / 登录」，再点「自检」。取得真实回答后再创建批次。'),
       h('div',{className:'sg-row'},button('检查连接',checkConnection,false,busy),button('去平台试采',()=>go('collect')),chromeInfo?.connected&&button('断开浏览器',()=>perform(async()=>{await call('chrome-disconnect');setChromeInfo(null);setShowExtension(false);setExtensionFeedback('浏览器已断开。重新连接时请重新获取连接码。');}))),
-      h('p',{role:'status',className:'sg-note'},extensionFeedback||connectionStatus))),
+       h('p',{role:'status',className:'sg-note'},extensionFeedback||connectionStatus))),
     h('details',null,h('summary',null,'连接不上或没有采到回答？'),h('ul',null,
      h('li',null,'找不到目录：先按上面的 Mac / Windows 方法直接定位；目录仍不存在时重新获取。'),
      h('li',null,'提示清单缺失：确认选中的是包含 manifest.json 的 chrome-extension 文件夹；文件校验失败时重新安装完整工作台包。'),

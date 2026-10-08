@@ -44,7 +44,9 @@ try{
  await page.reload();await page.getByRole('heading',{name:'看板',exact:true}).waitFor();await settings();
  assert.equal(await page.getByLabel('所属公司',{exact:true}).inputValue(),'示例公司');
  await page.getByRole('button',{name:'前往浏览器设置',exact:true}).click();
- const first=page.locator('.sg-install > li').nth(0);
+ assert.equal(await page.locator('.sg-install > li').count(),4);
+ assert.match(await page.locator('.sg-install > li').nth(0).innerText(),/^安装浏览器扩展/);
+ const first=page.locator('.sg-install > li').nth(1);
  failConnection=true;await first.getByRole('button',{name:'获取扩展目录和连接码',exact:true}).click();await first.getByText(/获取失败：连接服务暂不可用/).waitFor();assert.equal(await first.getByLabel('扩展目录',{exact:true}).count(),0);
  failConnection=false;await first.getByRole('button',{name:'获取扩展目录和连接码',exact:true}).click();await first.getByText('扩展文件校验通过 · v0.5.11',{exact:true}).waitFor();
  assert.match(await first.getByLabel('扩展目录',{exact:true}).inputValue(),/chrome-extension$/);assert.match(await first.getByLabel('本机连接码',{exact:true}).inputValue(),/UI-TEST-ONLY/);
