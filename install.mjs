@@ -18,6 +18,8 @@ for(const file of FILES){
 await mkdir(target,{recursive:true});
 for(const file of [...FILES,'package.json','cordis.patch.yml','deployment.json'])await cp(join(source,file),join(target,file));
 await cp(join(source,'chrome-extension'),join(target,'chrome-extension'),{recursive:true});
+await mkdir(join(target,'docs'),{recursive:true});
+await cp(join(source,'docs/report-format.md'),join(target,'docs/report-format.md'));
 await mkdir(join(target,'vendor/node_modules'),{recursive:true});
 for(const dependency of ['xlsx','playwright-core'])await cp(join(source,'vendor/node_modules',dependency),join(target,'vendor/node_modules',dependency),{recursive:true});
 // @deepseek-ai 依赖的 junction 只是兜底（宿主一般按自己的解析路径加载）；目标失效或已存在都不能让安装中断。

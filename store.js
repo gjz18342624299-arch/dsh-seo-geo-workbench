@@ -69,6 +69,11 @@ function mdToHtml(src){
  const flushP=()=>{if(buf.length){out+='<p>'+buf.map(lineHtml).join('<br>')+'</p>';buf=[];}};
  while(i<lines.length){
   const L=lines[i];
+  if(/^证据与细节[：:]/.test(L.trim())){
+   flushP();
+   out+='<details class="report-evidence"><summary>展开证据与细节</summary><p>'+lineHtml(L.trim().replace(/^证据与细节[：:]\s*/,''))+'</p></details>';
+   i++;continue;
+  }
   if(/^\s*\|.*\|\s*$/.test(L)){
    flushP();
    const rows=[];
@@ -92,6 +97,20 @@ function mdToHtml(src){
  }
  flushP();
  return out;
+}
+
+export function geoNarrativeHtml(text){
+ const body=String(text||'');
+ const sections=[...body.matchAll(/^##\s+([1-6])[.、．]?\s+([^\n]+)\n/gm)];
+ if(!sections.length)return mdToHtml(body);
+ const blocks=sections.map((m,i)=>({number:Number(m[1]),title:m[2].trim(),text:body.slice(m.index,sections[i+1]?.index??body.length)}));
+ const overview=mdToHtml(body.slice(0,sections[0].index));
+ const primary=blocks.filter(b=>b.number===1||b.number===6).map(b=>mdToHtml(b.text)).join('');
+ const detail=blocks.filter(b=>b.number!==1&&b.number!==6).map(b=>{
+  const heading=mdToHtml('### '+b.title).replace(/^<h4>/,'').replace(/<\/h4>$/,'');
+  return '<details class="report-evidence"><summary>'+heading+'</summary>'+mdToHtml(b.text)+'</details>';
+ }).join('');
+ return overview+primary+detail;
 }
 
 export class Store {
@@ -401,7 +420,7 @@ export class Store {
     const samples=geo.slice(0,80).map(r=>{const eff=r.entityEffective||r.entity;const srcTag=r.entitySource==='auto'?(r.entity?'（规则自动·已采纳）':'（规则自动）'):r.entitySource==='auto-llm'?'（AI 自动）':r.entitySource==='manual'?'（人工）':'';return '<tr><td>'+esc(r.platform)+'</td><td>'+esc((r.question||'').slice(0,24))+'</td><td>'+esc(({ours:'我方',mixed:'混合',rival:'竞品'}[eff]||'待判定')+srcTag)+'</td><td class="n">'+(r.answer||'').length+'</td><td class="n">'+(r.citations||[]).length+(citesOfficial(r)?'★':'')+'</td><td class="muted">'+esc((r.answer||'').slice(0,90))+'…</td></tr>';}).join('');
     const fncSet=new Set(a.foundNotCited?.ids||[]);
     const fncRows=geo.filter(r=>fncSet.has(r.id)).slice(0,40).map(r=>'<tr><td>'+esc(r.platform)+'</td><td>'+esc((r.question||'').slice(0,30))+'</td><td>'+(Array.isArray(r.searchedSources)?'检索列表':'正文信号')+'</td><td class="n">'+(r.citations||[]).length+'</td><td class="muted"><span class="id">'+esc(String(r.id).slice(0,8))+'</span></td></tr>').join('');
-    const deepBody=deep?('<section class="deep-md"><div class="eyebrow">DSH 深入分析 · '+esc(deep.createdAt.slice(0,16))+' · 覆盖记录 '+(deep.recordIds||[]).length+' 条 · 落在本报告范围 '+deepHits+' 条</div>'+mdToHtml(deep.text)
+    const deepBody=deep?('<section class="deep-md"><div class="eyebrow">DSH 深入分析 · '+esc(deep.createdAt.slice(0,16))+' · 覆盖记录 '+(deep.recordIds||[]).length+' 条 · 落在本报告范围 '+deepHits+' 条</div>'+((deep.recordIds||[]).length!==a.selected.length||deepHits!==a.selected.length?'<p class="legend">范围提醒：深入分析与本次导出覆盖的记录不同，以下叙事供参考；总数与比例以本次执行摘要为准，不直接混用或比较增长。</p>':'')+geoNarrativeHtml(deep.text)
       +follows.map(f=>'<div class="deep-follow"><p class="legend">追问 '+esc(f.createdAt.slice(0,16))+'：'+esc(f.question)+'</p>'+mdToHtml(f.text)+'</div>').join('')+'</section>')
       :'<section><h2>深入分析</h2><p class="muted">当前报告范围还没有匹配的深入分析：已有分析覆盖的记录与本报告范围不重叠，直接内嵌会让结论与数据对不上。请先对当前范围运行 DSH 深入分析（「GEO 分析」页，或「报告与行动」页的「对所选范围生成深入分析」按钮），再导出报告。</p></section>';
     return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(s.brand.name)} GEO 检测报告 · ${esc(dateStr)}</title><style>
@@ -441,6 +460,9 @@ th{background:var(--pale);font-weight:700}
 .deep-md code{background:var(--pale);border-radius:5px;padding:1px 6px;font-size:13px}.deep-md table{font-size:13.5px}
 .deep-follow{border-left:3px solid var(--purple);margin:18px 0 0 6px;padding:6px 18px}
 .muted{color:var(--muted)}.legend{font-size:13px;color:var(--muted)}
+details.report-evidence{margin:14px 0;padding:12px 0;border-top:1px solid var(--line)}details.report-evidence summary{cursor:pointer;color:var(--deep);font-weight:700}details.report-evidence[open]>summary{margin-bottom:12px}.deep-md p{overflow-wrap:anywhere}
+@media(max-width:640px){section{padding:28px 20px}.callout{padding:18px}.deep-md h3{font-size:20px}.deep-md table{display:block;overflow-x:auto}}
+@media print{details.report-evidence>*{display:block}}
 footer{padding:30px 7vw;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
 @media print{body{background:#fff}.shell{box-shadow:none}section{page-break-inside:avoid}}
 </style></head><body><div class="shell">
@@ -459,7 +481,7 @@ ${removed.length?'<div><b>'+removed.length+' 条剔除</b>'+removed.slice(0,4).m
 <section><h2>执行摘要</h2>
 <div class="callout">${callout}</div>
 <div class="cards">${cards.map(c=>'<div class="card '+c[3]+'"><small>'+c[0]+'</small><b>'+c[1]+'</b><small>'+esc(c[2])+'</small></div>').join('')}</div>
-<p class="legend">主体判定分布：我方 ${ent.ours} · 混合 ${ent.mixed} · 竞品 ${ent.rival} · 待判定 ${ent.unjudged}（其中提及品牌而未判定 ${ent.unjudgedMentioned||0} 条，其余多为未提及品牌）。判定来源：规则自动 ${ent.auto||0} 条 · AI 自动 ${ent.llm||0} 条 · 人工 ${ent.manual||0} 条。自动判定合计 ${(ent.auto||0)+(ent.llm||0)} 条（规则自动 + AI 自动）；规则自动依据官网、官方仓库和出品方等明确线索，AI 自动由大语言模型在明确线索不足时辅助判断。人工判定优先于一切自动判定；名字出现为文本匹配（同名项目会命中）。品牌词提及率、场景覆盖率、首位/前三提及率均以主体判定=我方计数，同名命中、混合与待判定样本不计入。</p>
+<p class="legend">主体判定分布：我方 ${ent.ours} · 混合 ${ent.mixed} · 竞品 ${ent.rival} · 待判定 ${ent.unjudged}（其中提及品牌而未判定 ${ent.unjudgedMentioned||0} 条，其余多为未提及品牌）。判定来源：规则自动 ${ent.auto||0} 条 · AI 自动 ${ent.llm||0} 条 · 人工 ${ent.manual||0} 条。自动判定合计 ${(ent.auto||0)+(ent.llm||0)} 条（规则自动 + AI 自动），其中可能包含仍待判定的样本，合计不等于已确认归属的数量；规则自动依据官网、官方仓库和出品方等明确线索，AI 自动由大语言模型在明确线索不足时辅助判断。人工判定优先于一切自动判定；名字出现为文本匹配（同名项目会命中）。品牌词提及率、场景覆盖率、首位/前三提及率均以主体判定=我方计数，同名命中、混合与待判定样本不计入。</p>
 </section>
 ${actSection}
 ${deepBody}
