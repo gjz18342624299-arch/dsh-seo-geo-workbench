@@ -1,3 +1,23 @@
+export function classifyAiReferrer(value){
+ let host=String(value||'').trim().toLowerCase();try{host=new URL(host.includes('://')?host:'https://'+host).hostname;}catch{return null;}
+ const platforms=[['ChatGPT',['chatgpt.com','chat.openai.com']],['豆包',['doubao.com']],['Kimi',['kimi.com','kimi.moonshot.cn']],['Claude',['claude.ai']],['Gemini',['gemini.google.com']],['Perplexity',['perplexity.ai']],['Copilot',['copilot.microsoft.com']],['DeepSeek',['chat.deepseek.com']],['Grok',['grok.com']],['元宝',['yuanbao.tencent.com']],['通义',['qianwen.com','tongyi.aliyun.com']]];
+ return platforms.find(([,domains])=>domains.some(d=>host===d||host.endsWith('.'+d)))?.[0]||null;
+}
+export function shanghaiDay(value){if(!value)return '';const d=new Date(value);return Number.isFinite(d.getTime())?new Date(d.getTime()+8*3600000).toISOString().slice(0,10):'';}
+export function weekStart(value){const day=shanghaiDay(value);if(!day)return '';const d=new Date(day+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));return d.toISOString().slice(0,10);}
+export function weeklyAnalyses(state,count=8,filters={},now=new Date()){
+ const current=weekStart(now),first=new Date(current+'T00:00:00Z');first.setUTCDate(first.getUTCDate()-7*(count-1));
+ return Array.from({length:count},(_,i)=>{const d=new Date(first);d.setUTCDate(d.getUTCDate()+7*i);const from=d.toISOString().slice(0,10);d.setUTCDate(d.getUTCDate()+6);const to=d.toISOString().slice(0,10);
+ const records=state.records.filter(r=>{if(isUnweeklyRecord(r,state)||!r.date)return false;const day=shanghaiDay(r.date);return day>=from&&day<=to;});
+ const a=analyse({...state,records},filters);
+ // Site totals, query dimensions and page dimensions describe the same clicks.
+ // Choose a single dimension per source rather than adding them together.
+ const chosen=[];for(const source of new Set(a.seo.map(r=>searchProvider(r,state)))){const rs=a.seo.filter(r=>searchProvider(r,state)===source),daily=rs.filter(r=>r.keyword==='（整站）'||r.dimension==='daily'),queries=rs.filter(r=>r.keyword&&r.keyword!=='（整站）');chosen.push(...(daily.length?daily:queries.length?queries:rs.filter(r=>r.page)));}
+ const clicks=chosen.reduce((n,r)=>n+(r.clicks||0),0),impressions=chosen.reduce((n,r)=>n+(r.impressions||0),0);a.seoAgg.totals={...a.seoAgg.totals,clicks,impressions,ctr:impressions?clicks/impressions:null};
+ return {id:from,date:from,from,to,current:from===current,name:from+' 至 '+to,a,total:a.geo.length,ours:a.entity.ours,cited:a.cited,rival:a.entity.rival};});
+}
+export function searchProvider(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);const source=r.provider||b?.provider||b?.sourceLabel||r.location||'';return /bing/i.test(source)?'Bing':/google search console|gsc/i.test(source)?'GSC':/cloudflare/i.test(source)?'Cloudflare':'文件导入';}
+export function isUnweeklyRecord(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);return !!(r.dateRange||r.periodFrom||r.periodTo||String(r.dimension||'').startsWith('snapshot')||r.metrics?.periodType==='cumulative'||parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])||(r.kind==='seo'&&searchProvider(r,state)==='Bing'&&b?.api&&r.keyword!=='（整站）'));}
 // Shared, deterministic analysis. Model judgements stay separate from measured counts.
 export const PRESETS = [
   ['chatgpt','ChatGPT','https://chatgpt.com/'],['deepseek','DeepSeek','https://chat.deepseek.com/'],
@@ -67,7 +87,7 @@ export function activityFor(url,activities=[]){
   return null;
 }
 
-export function exampleState(){return initialState({brand:{name:'DSH Desktop',aliases:['DSH Desktop','DSH'],officialUrl:'https://dshdesktop.com/zh/',domain:'dshdesktop.com',competitors:['anywhere-labs','WorkBuddy','Cherry Studio','Chatbox','AnythingLLM'],entityRivals:[...DEFAULT_ENTITY_RIVALS],organization:'DataElement',officialSources:['https://github.com/dataelement/']}});}
+export function exampleState(){return initialState({brand:{name:'DSH Desktop',aliases:['DSH Desktop','DSH'],officialUrl:'https://dshdesktop.com',domain:'dshdesktop.com',competitors:['anywhere-labs','WorkBuddy','Cherry Studio','Chatbox','AnythingLLM'],entityRivals:[...DEFAULT_ENTITY_RIVALS],organization:'DataElement',officialSources:['https://github.com/dataelement/']}});}
 export function isDshBrand(brand){return brand?.domain?.replace(/^www\./,'').toLowerCase()==='dshdesktop.com'&&/dsh/i.test(brand?.name||'');}
 export function isOfficialCitation(value,brand){
  try{const u=new URL(canonicalUrl(value)),domain=String(brand.domain||'').toLowerCase().replace(/^www\./,'');
@@ -295,14 +315,15 @@ export function analyse(state,filter={}) {
   const siteAgg=channels.find(c=>c.name===CF_TOTAL_CHANNEL)||null;
   const chanList=channels.filter(c=>c.name!==CF_TOTAL_CHANNEL);
   const chanVisits=chanList.reduce((t,c)=>t+c.visits,0);
-  const AI_REF=/(doubao|kimi|chatgpt|openai|perplexity|claude|gemini|copilot|deepseek|chatglm|yuanbao|qwen|tongyi|llm|\.ai(?:[./:]|$))/i;
+  const aiPlatform=c=>classifyAiReferrer(c);
+
   const siteRows=traffic.filter(r=>String(r.channel||'')===CF_TOTAL_CHANNEL);
   const boardDailyMap=new Map();
   for(const r of(siteRows.length?siteRows:traffic)){const d=String(r.date||'').slice(0,10);if(!d)continue;const e=boardDailyMap.get(d)||{name:d,visits:0,downloads:0};e.visits+=r.visits||0;e.downloads+=r.downloads||0;boardDailyMap.set(d,e);}
-  const seoBoard={basis:siteRows.length?'site':'channels',site:siteAgg,channels:chanList.map(c=>({...c,share:chanVisits?c.visits/chanVisits:null})),totalChannelVisits:chanVisits,aiReferrers:chanList.filter(c=>AI_REF.test(c.name)),daily:[...boardDailyMap.values()].sort((a,b)=>a.name<b.name?-1:1)};
+  const seoBoard={basis:siteRows.length?'site':'channels',site:siteAgg,channels:chanList.map(c=>({...c,share:chanVisits?c.visits/chanVisits:null})),totalChannelVisits:chanVisits,aiReferrers:chanList.filter(c=>aiPlatform(c.name)).map(c=>({...c,platform:aiPlatform(c.name)})),daily:[...boardDailyMap.values()].sort((a,b)=>a.name<b.name?-1:1)};
   const seoActions=[];
   if(!seo.length)seoActions.push({key:'seo-no-keywords',title:'接入搜索词数据',detail:'当前没有搜索词记录（点击/曝光/排名）；没有搜索词数据时本页只有流量维度可分析。',do:'Bing 站长已配置时点「同步 Bing 搜索数据」，或到采集页导入 Google Search Console 导出的 CSV。',ids:[]});
-  const quickWins=keywords.filter(k=>k.impressions>=100&&k.position!==null&&k.position>=4&&k.position<=15&&(k.ctr===null||k.ctr<0.02));
+  const quickWins=keywords.filter(k=>k.impressions>=100&&k.position!==null&&k.position>=4&&k.position<=15&&(k.ctr!==null&&k.ctr<0.02));
   if(quickWins.length)seoActions.push({key:'seo-quick-wins',title:'冲刺前三的高曝光词',detail:`${quickWins.length} 个搜索词排名在 4-15 位、曝光 ≥100 但 CTR <2%：${quickWins.slice(0,5).map(k=>k.name).join('、')}${quickWins.length>5?' 等':''}。`,do:'优化这些词对应页面的标题与摘要：品牌词前置、结论句、结构化数据；排名小幅提升即可显著放量。',ids:[]});
   const zeroClick=keywords.filter(k=>k.impressions>=200&&k.clicks===0);
   if(zeroClick.length)seoActions.push({key:'seo-zero-click',title:'零点击高曝光词',detail:`${zeroClick.length} 个搜索词曝光 ≥200 却零点击：${zeroClick.slice(0,5).map(k=>k.name).join('、')}${zeroClick.length>5?' 等':''}。`,do:'检查标题是否与搜索意图脱节、同名竞品页面是否排在前面、摘要是否缺少可点性。',ids:[]});

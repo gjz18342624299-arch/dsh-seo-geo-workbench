@@ -1,0 +1,30 @@
+name: Publish workbench package
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install runtime dependencies
+        run: npm install --ignore-scripts
+      - name: Validate market package
+        run: node verify-package.mjs
+      - name: Publish fixed-name download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_TYPE}" = tag ] && [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo 'Tag and package version differ'
+            exit 1
+          fi
+          cp "../../outputs/market-v${VERSION}/dsh-seo-geo-workbench-${VERSION}.tgz" dsh-seo-geo-workbench.tgz
+          gh release create "v${VERSION}" dsh-seo-geo-workbench.tgz --title "SEO/GEO workbench v${VERSION}" --generate-notes --target "$GITHUB_SHA" --latest

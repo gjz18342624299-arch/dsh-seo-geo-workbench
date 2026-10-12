@@ -1,3 +1,4 @@
+import {AsyncLocalStorage} from 'node:async_hooks';
 import {fileURLToPath} from 'node:url';
 import {mkdir,readFile,writeFile,rename,stat,readdir,rm} from 'node:fs/promises';
 import {join,basename,extname,resolve} from 'node:path';
@@ -128,8 +129,35 @@ export class Store {
    const {chromium}=await import('playwright-core');
    let browser;try{browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage();await page.route('**/*',route=>route.abort());await page.setContent(r.html,{waitUntil:'load'});const name=stem+'.pdf',path=join(dir,name);const data=await page.pdf({path,format:'A4',printBackground:true,margin:{top:'14mm',bottom:'14mm',left:'10mm',right:'10mm'}});return {name,base64:data.toString('base64'),path};}catch(e){throw Error('PDF 导出失败，请确认已安装 Edge；仍可导出 HTML。'+e.message);}finally{await browser?.close();}
   }
-  constructor(root){this.root=resolve(root);this.file=join(this.root,'work','monitor-v3','state.json');this.tail=Promise.resolve();}
-  async read(){try{const s=JSON.parse(await readFile(this.file,'utf8'));s.version=Math.max(Number(s.version)||0,4);s.brand||=initialState().brand;s.brand.officialUrl||=s.brand.domain?'https://'+s.brand.domain:'';s.batches||=[];s.credentials||={};s.syncs||=[];s.schedules||=[];s.actionStates||={};s.activities||=[];return s;}catch(e){if(e.code!=='ENOENT')throw e;return initialState();}}
+  constructor(root){this.root=resolve(root);this.file=join(this.root,'work','monitor-v3','state.json');this.tail=Promise.resolve();this.brandContext=new AsyncLocalStorage();}
+  async readRaw(){try{const s=JSON.parse(await readFile(this.file,'utf8'));s.version=Math.max(Number(s.version)||0,4);s.brand||=initialState().brand;s.brand.officialUrl||=s.brand.domain?'https://'+s.brand.domain:'';s.batches||=[];s.credentials||={};s.syncs||=[];s.schedules||=[];s.actionStates||={};s.activities||=[];return s;}catch(e){if(e.code!=='ENOENT')throw e;return initialState();}}
+  withBrand(id,fn){return this.brandContext.run(id||null,fn);}
+  ensureBrands(s){
+    s.activeBrandId||='legacy';s.brandSpaces||={};
+    if(s.brand.domain==='dshdesktop.com')s.brand.officialUrl='https://dshdesktop.com';
+    return s;
+  }
+  brandPayload(s){const omit=new Set(['revision','activeBrandId','brandSpaces','brands']);return Object.fromEntries(Object.entries(s).filter(([k])=>!omit.has(k)));}
+  projectBrand(raw,id){
+    const target=id||raw.activeBrandId;
+    if(target===raw.activeBrandId)return raw;
+    const space=raw.brandSpaces[target];if(!space)throw Error('品牌不存在，请刷新品牌列表');
+    return {...structuredClone(space),revision:raw.revision,activeBrandId:target,brandSpaces:raw.brandSpaces};
+  }
+  async read(){const raw=this.ensureBrands(await this.readRaw());const s=this.projectBrand(raw,this.brandContext.getStore());s.brands=[{id:raw.activeBrandId,name:raw.brand.name||'未配置品牌',domain:raw.brand.domain||''},...Object.entries(raw.brandSpaces).map(([id,x])=>({id,name:x.brand.name||'未配置品牌',domain:x.brand.domain||''}))];return s;}
+  rootMutate(fn){const work=this.tail.then(async()=>{const raw=this.ensureBrands(await this.readRaw());const value=await fn(raw);raw.revision++;await mkdir(join(this.root,'work','monitor-v3'),{recursive:true});await this.writeAtomic(JSON.stringify(raw,null,2));return value??raw;});this.tail=work.catch(()=>{});return work;}
+  async switchBrand(a){return this.rootMutate(s=>{
+    if(a.type==='brand.create'){
+      const name=String(a.name||'').trim();if(!name||name.length>80)throw Error('请填写 1–80 字的品牌名称');
+      if([s.brand,...Object.values(s.brandSpaces).map(x=>x.brand)].some(b=>b.name===name))throw Error('已有同名品牌');
+      const id=randomUUID();const fresh=initialState();fresh.brand.name=name;fresh.brand.aliases=[name];fresh.platforms=structuredClone(s.platforms);fresh.credentials={};fresh.syncs=[];
+      s.brandSpaces[id]=fresh;a={...a,id};
+    }
+    if(a.id===s.activeBrandId)return {id:a.id};
+    const next=s.brandSpaces[a.id];if(!next)throw Error('品牌不存在');
+    const oldId=s.activeBrandId,old=this.brandPayload(s);delete s.brandSpaces[a.id];s.brandSpaces[oldId]=old;
+    for(const k of Object.keys(old))delete s[k];Object.assign(s,structuredClone(next));s.activeBrandId=a.id;return {id:a.id};
+  });}
   // 原子写带重试：Windows 上 rename 遇到目标被短暂占用（杀软扫描、上一个 DSH 实例未退净、并行会话句柄）会 EPERM/EBUSY，
   // 短暂退避重试可吸收瞬时占用；持续被锁才抛出（数据安全优先）。
   async writeAtomic(text){
@@ -145,7 +173,7 @@ export class Store {
     }finally{await rm(tmp,{force:true}).catch(()=>{});}
   }
 
-  mutate(fn){const work=this.tail.then(async()=>{const s=await this.read();const value=await fn(s);s.revision++;await mkdir(join(this.root,'work','monitor-v3'),{recursive:true});await this.writeAtomic(JSON.stringify(s,null,2));return value??s;});this.tail=work.catch(()=>{});return work;}
+  mutate(fn){const id=this.brandContext.getStore();return this.rootMutate(async raw=>{const s=this.projectBrand(raw,id);const value=await fn(s);delete s.brands;if(s!==raw)raw.brandSpaces[id]=this.brandPayload(s);return value??s;});}
   async preview({name,base64,text,sheet}) {
     const bytes=base64?Buffer.from(base64,'base64'):Buffer.from(text||'');
     if(!bytes.length||bytes.length>8*1024*1024)throw Error('文件应为非空，单个不超过 8 MB');
@@ -242,6 +270,7 @@ export class Store {
     return {path:file,bytes:Buffer.byteLength(body),specPath:fileURLToPath(new URL('./docs/report-format.md',import.meta.url))};
   }
   async action(a){
+    if(['brand.create','brand.switch'].includes(a.type))return this.switchBrand(a);
     return this.mutate(async s=>{
       if(a.type==='platform.add'){
         const url=publicUrl(String(a.url||''));const name=String(a.name||'').trim();if(!name||name.length>60)throw Error('网站名称需要 1-60 个字符');

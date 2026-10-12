@@ -20,7 +20,7 @@ async function fetchTitle(value){
  }catch{return {title:''};}
 }
 export function createHandler(store,collector,assets,configureSession,judge,questions,seoJobs){
- return async(req,res)=>{
+ const handle=async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
   const send=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
   try{
@@ -32,7 +32,7 @@ export function createHandler(store,collector,assets,configureSession,judge,ques
    if(req.method!=='POST'||req.headers['x-dsh-monitor']!=='1')return send(403,{error:'请求缺少本机工作台标识'});
    let body='',size=0;for await(const chunk of req){size+=chunk.length;if(size>12*1024*1024)throw Error('请求过大');body+=chunk;}const a=JSON.parse(body||'{}');
    const op=pathname.split('/').at(-1);let value;
-   if(op==='state'){const s=await store.read();s.credStatus={bingApiKey:!!s.credentials?.bingApiKey,bingSiteUrl:!!s.credentials?.bingSiteUrl,cfToken:!!s.credentials?.cfToken,cfZoneId:!!s.credentials?.cfZoneId,gscJson:!!s.credentials?.gscJson,gscSiteUrl:!!s.credentials?.gscSiteUrl};delete s.credentials;value=s;}
+   if(op==='state'){const s=await store.read();s.credStatus={bingApiKey:!!s.credentials?.bingApiKey,bingSiteUrl:!!s.credentials?.bingSiteUrl,cfToken:!!s.credentials?.cfToken,cfZoneId:!!s.credentials?.cfZoneId,gscJson:!!s.credentials?.gscJson,gscSiteUrl:!!s.credentials?.gscSiteUrl};delete s.credentials;delete s.brandSpaces;value=s;}
    else if(op==='workspace-directory'){value={exists:typeof a.path==='string'&&isAbsolute(a.path)&&await stat(a.path).then(x=>x.isDirectory(),()=>false)};}
    else if(op==='question-start'){if(!questions)throw Error('当前环境不支持后台生成');value=await questions.start(a);}
    else if(op==='configure-session'){if(!configureSession)throw Error('请在 DSH 内配置执行会话');value=await configureSession(a);}
@@ -71,7 +71,9 @@ export function createHandler(store,collector,assets,configureSession,judge,ques
    else if(op==='screenshot'){const s=await store.read();const r=s.records.find(x=>x.id===a.id&&x.source==='official_web');if(!r?.screenshotPath)throw Error('找不到截图');value={base64:(await readFile(r.screenshotPath)).toString('base64')};}
    else if(op==='browser'){const s=await store.read();const p=s.platforms.find(p=>p.id===a.id&&p.enabled);if(!p)throw Error('平台不存在或已停用');if(collector.taskId&&s.tasks.some(t=>t.id===collector.taskId&&t.status==='running'))throw Error('采集中，请先暂停当前任务');value=await collector.open(p);}
    else return send(404,{error:'接口不存在'});
+   if(value&&typeof value==='object'){delete value.credentials;delete value.brandSpaces;}
    send(200,value);
   }catch(e){send(400,{error:e.message});}
  };
+ return async(req,res)=>{if(!store.withBrand)return handle(req,res);const id=req.url.split('?')[0].endsWith('/state')?null:req.headers['x-dsh-brand']||(await store.read()).activeBrandId;return store.withBrand(id,()=>handle(req,res));};
 }

@@ -71,9 +71,10 @@ test('saved and generated report previews retain content, export and follow-up c
 });
 test('board platform filters preserve SEO traffic and rates use the same denominator',()=>{
  const s=fixture();s.records.push({id:'traffic1',kind:'traffic',source:'api',date:'2026-09-28',channel:'Traffic witness',visits:87654,downloads:0});
- const tree=render('board',s,[["[boardPlatform,setBoardPlatform]=useState('')","[boardPlatform,setBoardPlatform]=useState('Gemini')"]]);
- const t=textOf(tree);assert.match(t,/AI 常引用的网站/);assert.match(t,/Traffic witness/);assert.match(t,/87654 次/);assert.match(t,/不构成转化漏斗/);assert.doesNotMatch(t,/164%/);
- assert.ok(t.indexOf('AI 常引用的网站')>t.indexOf('Bing 可冲刺词'),'citation ranking belongs below the SEO section');
+ const changes=[["[boardPlatform,setBoardPlatform]=useState('')","[boardPlatform,setBoardPlatform]=useState('Gemini')"],["[selectedWeek,setSelectedWeek]=useState('')","[selectedWeek,setSelectedWeek]=useState('2026-09-28')"]];
+ const geo=textOf(render('board',s,changes));assert.match(geo,/AI 常引用的网站/);assert.match(geo,/AI 在说谁/);assert.doesNotMatch(geo,/Traffic witness/);assert.doesNotMatch(geo,/164%/);
+ const seo=textOf(render('board',s,[...changes,["[boardMode,setBoardMode]=useState('geo')","[boardMode,setBoardMode]=useState('seo')"]]));
+ assert.match(seo,/Traffic witness/);assert.match(seo,/87654 次/);assert.match(seo,/搜索词表现/);assert.doesNotMatch(seo,/AI 常引用的网站/);
 });
 
 test('action page follows latest report, renumbers open work and retains completed work',()=>{

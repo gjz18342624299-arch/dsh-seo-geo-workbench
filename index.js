@@ -84,7 +84,7 @@ export async function apply(ctx, options={}) {
   await seoJobs.recover().catch(e=>console.error('[seo-geo] SEO recovery:',e.message));
   const questions=new QuestionJobs(store,async(prompt,selection)=>{const route=selection?.provider&&selection?.model?selection:resolveJudgeRoute();if(!route)throw Error('请先在DSH配置默认模型，或在工作台选择执行模型');return llmJudgeComplete(route,'只按用户需求生成监测问题，不调用工具。',prompt);});
   await questions.recover().catch(e=>console.error('[seo-geo] question recovery:',e.message));
-  const judgeSweep=async()=>{
+  const judgeSweep=async()=>store.withBrand((await store.read()).activeBrandId,async()=>{
     if(judgeState.running)return;
     let pending;
     try{const s=await store.read();pending=pendingLlmJudge(s.records,s.brand,judgeState.attempts).slice(0,24);}catch(e){judgeState.lastError=String(e.message||e).slice(0,200);return;}
@@ -111,7 +111,7 @@ export async function apply(ctx, options={}) {
       }
       judgeState.lastRunAt=new Date().toISOString();
     }finally{judgeState.running=false;}
-  };
+  });
   const judge={
     kick:()=>{judgeSweep().catch(()=>{});},
     status:()=>({running:judgeState.running,judgedTotal:judgeState.judgedTotal,lastRunAt:judgeState.lastRunAt,lastError:judgeState.lastError,route:judgeState.lastRoute,routeAvailable:!!resolveJudgeRoute()}),
@@ -121,14 +121,14 @@ export async function apply(ctx, options={}) {
   const judgeTimer=setInterval(()=>judgeSweep().catch(()=>{}),30*1000);
   const judgeKick=setTimeout(()=>judgeSweep().catch(()=>{}),25*1000);
   // 定时采集调度：每分钟检查到期的 schedule，创建批次并交给后台采集器；Chrome 未连接时批次照常创建、任务排队等待。
-  const runDue=async()=>{try{
+  const runDue=async()=>{const brands=(await store.read()).brands;for(const brand of brands)await store.withBrand(brand.id,async()=>{try{
     const s=await store.read(),now=Date.now();
     for(const sch of s.schedules||[]){
       if(!sch.enabled||!sch.nextRunAt||sch.nextRunAt>now)continue;
       const r=await store.launchSchedule(sch.id).catch(()=>({error:'调度执行失败'}));
       if(r.batchId)collector.startBatch(r.batchId).catch(async e=>{await store.mutate(v=>{const x=(v.schedules||[]).find(x=>x.id===sch.id);if(x)x.lastError='启动采集失败：'+String(e.message||e).slice(0,200);}).catch(()=>{});});
     }
-  }catch{}};
+  }catch{}});};
   const schedTimer=setInterval(runDue,60*1000);
   const schedKick=setTimeout(runDue,20*1000);
   ctx.effect(()=>()=>{clearInterval(schedTimer);clearTimeout(schedKick);clearInterval(judgeTimer);clearTimeout(judgeKick);collector.close().catch(()=>{});});

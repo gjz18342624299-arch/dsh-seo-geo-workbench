@@ -1,4 +1,24 @@
 window.__ModuleLoader__.load({id:'dsh-seo-geo-workbench',factory(require){
+function classifyAiReferrer(value){
+ let host=String(value||'').trim().toLowerCase();try{host=new URL(host.includes('://')?host:'https://'+host).hostname;}catch{return null;}
+ const platforms=[['ChatGPT',['chatgpt.com','chat.openai.com']],['豆包',['doubao.com']],['Kimi',['kimi.com','kimi.moonshot.cn']],['Claude',['claude.ai']],['Gemini',['gemini.google.com']],['Perplexity',['perplexity.ai']],['Copilot',['copilot.microsoft.com']],['DeepSeek',['chat.deepseek.com']],['Grok',['grok.com']],['元宝',['yuanbao.tencent.com']],['通义',['qianwen.com','tongyi.aliyun.com']]];
+ return platforms.find(([,domains])=>domains.some(d=>host===d||host.endsWith('.'+d)))?.[0]||null;
+}
+function shanghaiDay(value){if(!value)return '';const d=new Date(value);return Number.isFinite(d.getTime())?new Date(d.getTime()+8*3600000).toISOString().slice(0,10):'';}
+function weekStart(value){const day=shanghaiDay(value);if(!day)return '';const d=new Date(day+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));return d.toISOString().slice(0,10);}
+function weeklyAnalyses(state,count=8,filters={},now=new Date()){
+ const current=weekStart(now),first=new Date(current+'T00:00:00Z');first.setUTCDate(first.getUTCDate()-7*(count-1));
+ return Array.from({length:count},(_,i)=>{const d=new Date(first);d.setUTCDate(d.getUTCDate()+7*i);const from=d.toISOString().slice(0,10);d.setUTCDate(d.getUTCDate()+6);const to=d.toISOString().slice(0,10);
+ const records=state.records.filter(r=>{if(isUnweeklyRecord(r,state)||!r.date)return false;const day=shanghaiDay(r.date);return day>=from&&day<=to;});
+ const a=analyse({...state,records},filters);
+ // Site totals, query dimensions and page dimensions describe the same clicks.
+ // Choose a single dimension per source rather than adding them together.
+ const chosen=[];for(const source of new Set(a.seo.map(r=>searchProvider(r,state)))){const rs=a.seo.filter(r=>searchProvider(r,state)===source),daily=rs.filter(r=>r.keyword==='（整站）'||r.dimension==='daily'),queries=rs.filter(r=>r.keyword&&r.keyword!=='（整站）');chosen.push(...(daily.length?daily:queries.length?queries:rs.filter(r=>r.page)));}
+ const clicks=chosen.reduce((n,r)=>n+(r.clicks||0),0),impressions=chosen.reduce((n,r)=>n+(r.impressions||0),0);a.seoAgg.totals={...a.seoAgg.totals,clicks,impressions,ctr:impressions?clicks/impressions:null};
+ return {id:from,date:from,from,to,current:from===current,name:from+' 至 '+to,a,total:a.geo.length,ours:a.entity.ours,cited:a.cited,rival:a.entity.rival};});
+}
+function searchProvider(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);const source=r.provider||b?.provider||b?.sourceLabel||r.location||'';return /bing/i.test(source)?'Bing':/google search console|gsc/i.test(source)?'GSC':/cloudflare/i.test(source)?'Cloudflare':'文件导入';}
+function isUnweeklyRecord(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);return !!(r.dateRange||r.periodFrom||r.periodTo||String(r.dimension||'').startsWith('snapshot')||r.metrics?.periodType==='cumulative'||parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])||(r.kind==='seo'&&searchProvider(r,state)==='Bing'&&b?.api&&r.keyword!=='（整站）'));}
 // Shared, deterministic analysis. Model judgements stay separate from measured counts.
 const PRESETS = [
   ['chatgpt','ChatGPT','https://chatgpt.com/'],['deepseek','DeepSeek','https://chat.deepseek.com/'],
@@ -68,7 +88,7 @@ function activityFor(url,activities=[]){
   return null;
 }
 
-function exampleState(){return initialState({brand:{name:'DSH Desktop',aliases:['DSH Desktop','DSH'],officialUrl:'https://dshdesktop.com/zh/',domain:'dshdesktop.com',competitors:['anywhere-labs','WorkBuddy','Cherry Studio','Chatbox','AnythingLLM'],entityRivals:[...DEFAULT_ENTITY_RIVALS],organization:'DataElement',officialSources:['https://github.com/dataelement/']}});}
+function exampleState(){return initialState({brand:{name:'DSH Desktop',aliases:['DSH Desktop','DSH'],officialUrl:'https://dshdesktop.com',domain:'dshdesktop.com',competitors:['anywhere-labs','WorkBuddy','Cherry Studio','Chatbox','AnythingLLM'],entityRivals:[...DEFAULT_ENTITY_RIVALS],organization:'DataElement',officialSources:['https://github.com/dataelement/']}});}
 function isDshBrand(brand){return brand?.domain?.replace(/^www\./,'').toLowerCase()==='dshdesktop.com'&&/dsh/i.test(brand?.name||'');}
 function isOfficialCitation(value,brand){
  try{const u=new URL(canonicalUrl(value)),domain=String(brand.domain||'').toLowerCase().replace(/^www\./,'');
@@ -296,14 +316,15 @@ function analyse(state,filter={}) {
   const siteAgg=channels.find(c=>c.name===CF_TOTAL_CHANNEL)||null;
   const chanList=channels.filter(c=>c.name!==CF_TOTAL_CHANNEL);
   const chanVisits=chanList.reduce((t,c)=>t+c.visits,0);
-  const AI_REF=/(doubao|kimi|chatgpt|openai|perplexity|claude|gemini|copilot|deepseek|chatglm|yuanbao|qwen|tongyi|llm|\.ai(?:[./:]|$))/i;
+  const aiPlatform=c=>classifyAiReferrer(c);
+
   const siteRows=traffic.filter(r=>String(r.channel||'')===CF_TOTAL_CHANNEL);
   const boardDailyMap=new Map();
   for(const r of(siteRows.length?siteRows:traffic)){const d=String(r.date||'').slice(0,10);if(!d)continue;const e=boardDailyMap.get(d)||{name:d,visits:0,downloads:0};e.visits+=r.visits||0;e.downloads+=r.downloads||0;boardDailyMap.set(d,e);}
-  const seoBoard={basis:siteRows.length?'site':'channels',site:siteAgg,channels:chanList.map(c=>({...c,share:chanVisits?c.visits/chanVisits:null})),totalChannelVisits:chanVisits,aiReferrers:chanList.filter(c=>AI_REF.test(c.name)),daily:[...boardDailyMap.values()].sort((a,b)=>a.name<b.name?-1:1)};
+  const seoBoard={basis:siteRows.length?'site':'channels',site:siteAgg,channels:chanList.map(c=>({...c,share:chanVisits?c.visits/chanVisits:null})),totalChannelVisits:chanVisits,aiReferrers:chanList.filter(c=>aiPlatform(c.name)).map(c=>({...c,platform:aiPlatform(c.name)})),daily:[...boardDailyMap.values()].sort((a,b)=>a.name<b.name?-1:1)};
   const seoActions=[];
   if(!seo.length)seoActions.push({key:'seo-no-keywords',title:'接入搜索词数据',detail:'当前没有搜索词记录（点击/曝光/排名）；没有搜索词数据时本页只有流量维度可分析。',do:'Bing 站长已配置时点「同步 Bing 搜索数据」，或到采集页导入 Google Search Console 导出的 CSV。',ids:[]});
-  const quickWins=keywords.filter(k=>k.impressions>=100&&k.position!==null&&k.position>=4&&k.position<=15&&(k.ctr===null||k.ctr<0.02));
+  const quickWins=keywords.filter(k=>k.impressions>=100&&k.position!==null&&k.position>=4&&k.position<=15&&(k.ctr!==null&&k.ctr<0.02));
   if(quickWins.length)seoActions.push({key:'seo-quick-wins',title:'冲刺前三的高曝光词',detail:`${quickWins.length} 个搜索词排名在 4-15 位、曝光 ≥100 但 CTR <2%：${quickWins.slice(0,5).map(k=>k.name).join('、')}${quickWins.length>5?' 等':''}。`,do:'优化这些词对应页面的标题与摘要：品牌词前置、结论句、结构化数据；排名小幅提升即可显著放量。',ids:[]});
   const zeroClick=keywords.filter(k=>k.impressions>=200&&k.clicks===0);
   if(zeroClick.length)seoActions.push({key:'seo-zero-click',title:'零点击高曝光词',detail:`${zeroClick.length} 个搜索词曝光 ≥200 却零点击：${zeroClick.slice(0,5).map(k=>k.name).join('、')}${zeroClick.length>5?' 等':''}。`,do:'检查标题是否与搜索意图脱节、同名竞品页面是否排在前面、摘要是否缺少可点性。',ids:[]});
@@ -499,6 +520,8 @@ const SG_CSS=`
 .sg-kpi .sg-kpi-note{grid-column:1/3;font-size:12px;color:var(--muted)}
 `;
 const SG_CSS2=`
+.sg-brand-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 24px}.sg-brand-grid>.sg-field:last-child{grid-column:1/-1}.sg-token-editor{min-width:0}.sg-token-list{display:flex;flex-wrap:wrap;align-content:flex-start;gap:8px;border:1px solid var(--line);background:#fafbfe;border-radius:10px;padding:12px;min-height:76px;max-height:180px;overflow:auto}.sg-token{display:inline-flex;align-items:center;gap:3px;max-width:100%;border:1px solid #e2e7f1;background:white;border-radius:7px;padding:3px 4px 3px 8px;min-height:34px}.sg-app .sg-token input{border:0;background:transparent;border-radius:4px;padding:3px 0;height:26px;min-width:0;max-width:220px;font-size:12px;box-shadow:none}.sg-token-remove{border:0;background:transparent;border-radius:4px;cursor:pointer;color:#929db0!important;width:25px;height:26px;font-size:18px!important;flex:none}.sg-token-remove:hover{background:#fff0ed;color:#b45343!important}.sg-token-add{border:1px dashed #cbd4e6;background:transparent;color:var(--accent-ink)!important;border-radius:7px;padding:7px 11px;font-size:12px!important;cursor:pointer;min-height:34px}.sg-token-editor>.sg-note{font-size:11px;margin:8px 0 0;line-height:1.6;color:var(--muted)}.sg-brand-grid>.sg-field>label{margin-bottom:8px;font-weight:500}.sg-brand-grid textarea{min-height:72px}
+@container (width <= 700px){.sg-brand-grid{grid-template-columns:1fr;gap:16px}.sg-brand-grid>.sg-field:last-child{grid-column:auto}.sg-token-list{padding:10px;max-height:180px}.sg-app .sg-token input{max-width:190px}}
 .sg-action-layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(320px,1fr);gap:18px;align-items:start}.sg-action-layout>.sg-card{min-width:0}.sg-progress-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:12px 0 4px}.sg-progress-tabs button{border:0;border-bottom:2px solid transparent;background:none;color:var(--ink2);padding:9px 12px;cursor:pointer;font:inherit}.sg-progress-tabs button[aria-selected=true]{border-bottom-color:var(--accent);color:var(--accent-ink);font-weight:600}.sg-task-list>.sg-todo-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line2)}.sg-task-list>.sg-todo-item:last-child{border:0}.sg-task-list>.sg-todo-item .sg-muted{grid-column:1;min-width:0;overflow-wrap:anywhere}.sg-task-list>.sg-todo-item .sg-btn{grid-column:2;grid-row:1/span 2}.sg-done-item{display:flex;gap:10px;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid var(--line2)}.sg-done-item>div{min-width:0}.sg-done-item b,.sg-done-item small{display:block;overflow-wrap:anywhere}.sg-done-item small{margin-top:3px}.sg-done-item .sg-btn{flex:none}.sg-activity-section{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}.sg-activity-head{justify-content:space-between;align-items:flex-start;margin-bottom:12px}.sg-activity-head h3{font-size:14px;margin:0}.sg-activity-head p{font-size:12px;margin:3px 0 0}.sg-activity-section .sg-li{overflow-wrap:anywhere}
 @container (width <= 1000px){.sg-action-layout{grid-template-columns:minmax(0,1fr)}}
 .sg-stack>.sg-todo-item{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sg-stack>.sg-todo-item .sg-btn{margin-left:auto}.sg-setup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;list-style:decimal;padding-left:24px;margin:12px 0}.sg-setup li{padding:10px 0}.sg-setup li>div{margin-bottom:6px}.sg-setup p{margin:4px 0}.sg-install{padding-left:24px}.sg-install>li{padding:12px 0;border-bottom:1px solid var(--line2)}.sg-install>li:last-child{border:0}.sg-extension-result,.sg-install-help{margin-top:12px;padding:14px;border:1px solid var(--line);border-radius:8px;overflow-wrap:anywhere}.sg-extension-result{background:var(--accent-wash)}.sg-extension-result textarea{overflow-wrap:anywhere;word-break:break-all;resize:vertical}.sg-inline-feedback{padding:12px;border:1px solid var(--line);border-radius:8px;margin-top:10px}.sg-inline-feedback.success{color:var(--good-text)}.sg-inline-feedback.error{color:var(--crit-text)}
@@ -549,7 +572,7 @@ details.sg-dt table{margin-top:6px}
 .sg-tabs button{border:0;background:transparent;padding:6px 14px;border-radius:7px;cursor:pointer;color:var(--ink2);font-size:13px}
 .sg-tabs button.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .sg-field{display:flex;flex-direction:column;gap:5px;min-width:150px}
-.sg-field>span{font-weight:600;font-size:12px}
+.sg-filters details{max-width:100%;min-width:0}.sg-filters details input{max-width:100%;min-width:0}.sg-field>span{font-weight:600;font-size:12px}
 .sg-app input:not([type=checkbox]),.sg-app select,.sg-app textarea{border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--surface)}
 .sg-app textarea{min-height:76px;resize:vertical}
 .sg-chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -620,6 +643,20 @@ details.sg-dt table{margin-top:6px}
 @container (width <= 900px){.sg-app{grid-template-columns:150px minmax(0,1fr)}}
 @container (width <= 600px){.sg-app{display:flex;flex-direction:column}.sg-side{padding:8px 10px;flex:none;overflow:visible;border-right:0;border-bottom:1px solid var(--line)}.sg-brand{display:none}.sg-nav{display:flex;overflow:auto;gap:2px}.sg-nav button{white-space:nowrap;font-size:12px}.sg-main{flex:1;min-height:0;width:100%}.sg-side-foot{display:none}.sg-nav{gap:3px}.sg-nav button{padding:9px}.sg-nav button svg{display:none}.sg-main{padding:20px 14px 40px}.sg-kpi{padding:15px}.sg-kpi .sg-kpi-val{font-size:28px}.sg-step .sg-chips,.sg-field>.sg-chips{grid-template-columns:1fr}.sg-kpis{gap:10px}.sg-filters select,.sg-filters input{max-width:100%;min-width:0;flex:1 1 130px}.sg-head h1{font-size:24px}}
 @media(prefers-color-scheme:dark){.sg-app{--plane:#131b29;--side:#182231;--surface:#1b2738;--ink:#e6edf7;--ink2:#bfccdf;--muted:#98abc4;--line:#35445a;--line2:#2c3b50;--grid:#35445a;--accent:#3568d4;--primary-hover:#2652b4;--accent-ink:#a4c5ff;--accent-wash:#223a60;--hover:#26364d;--good-text:#78d8a1;color-scheme:dark}.sg-btn.primary{color:#fff}.sg-host-toolbar{background:#182231;color:#bfccdf}.sg-host-toolbar button{background:#25364c;border-color:#35445a;color:#e6edf7}.sg-drop{border-color:#49658c}.sg-bar{background:var(--line)}.sg-report-doc{background:#fff}}
+
+/* Compact analytics layout, shared by desktop and hosted workbench. */
+.sg-class-label{display:inline-flex;align-items:center;gap:9px;white-space:nowrap}.sg-class-swatch{display:inline-block;width:10px;height:10px;flex:none;border-radius:3px;box-shadow:inset 0 0 0 1px #0000000c}.sg-board .sg-g11{align-items:stretch}.sg-board .sg-g11>.sg-card{height:100%;margin:0;display:flex;flex-direction:column;min-width:0}.sg-board .sg-g11>.sg-card>.sg-card-head{min-height:62px;flex:none}.sg-board .sg-g11>.sg-card>.sg-donut-wrap{flex:0}.sg-board .sg-g11>.sg-card>*{min-width:0}.sg-board .sg-g11>.sg-card>.sg-btn{align-self:flex-start}.sg-board .sg-hbars{width:100%;min-width:0}.sg-board .sg-hbar-label>span{flex:1;min-width:0}.sg-board .sg-hbar-label>b{flex:none}.sg-board .sg-kpis{align-items:stretch}.sg-board .sg-kpi{height:100%}.sg-board .sg-donut{aspect-ratio:1;flex-shrink:0}.sg-board .sg-donut-wrap{min-width:0}.sg-board .sg-donut-wrap table{width:100%}
+@container (width <= 760px){.sg-board .sg-g11>.sg-card{height:auto}.sg-board .sg-g11>.sg-card>.sg-card-head{min-height:0}.sg-class-label{gap:5px}.sg-class-swatch{width:8px;height:8px}.sg-board .sg-donut-wrap{grid-template-columns:1fr}.sg-board .sg-donut{margin:4px auto 14px}}
+.sg-board .sg-card>.sg-kpi-val{font-size:32px;font-weight:650;letter-spacing:-1px;margin:12px 0 4px}.sg-board .sg-hbar-label>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sg-board .sg-card>.sg-kpi-val+p{font-size:11px;color:var(--muted);margin:0 0 16px}
+.sg-app.sg-board{--accent:#4663df;--accent-ink:#3e56bf;--accent-wash:#eef1ff;--s-ours:#526be7;--s-rival:#e9a04a;--s-mixed:#9476d5;--line:#e7eaf1;--surface:#fff;--ink:#202b43;--ink2:#55627a;--muted:#8893a6;background:#f6f7fb}
+.sg-board .sg-main{padding:22px 28px 48px}.sg-board .sg-head{margin:4px 0 20px}.sg-board .sg-head h1{font-size:26px;letter-spacing:-.7px}.sg-board .sg-head p{font-size:12px;color:var(--muted)}
+.sg-board .sg-brand-toolbar{background:transparent;border:0;padding:0 0 16px;margin:0;gap:8px;min-height:38px}.sg-brand-toolbar>strong{font-size:11px;color:var(--muted)}.sg-board .sg-brand-toolbar select{background:white;border-color:var(--line);font-weight:600}.sg-board .sg-brand-toolbar>.sg-btn{background:transparent;border-color:transparent;color:var(--muted);font-size:12px}.sg-brand-toolbar details{font-size:12px;color:var(--muted)}
+.sg-board .sg-board-filters{background:transparent;border:0;padding:0;margin:0 0 18px;gap:8px}.sg-board .sg-board-filters>.sg-seg{margin-right:auto;background:#e9ecf4;padding:4px;border:0;border-radius:9px}.sg-board .sg-seg button{padding:9px 14px;font-size:12px;border-radius:6px;color:var(--ink2)}.sg-board .sg-seg button.on{background:white;color:var(--accent-ink);box-shadow:0 2px 6px #25345812}.sg-board .sg-board-filters select{height:36px;background:white;font-size:12px}
+.sg-board .sg-card{padding:20px 22px;border-radius:14px;box-shadow:0 2px 6px #26344d03;overflow:hidden}.sg-board .sg-card h2{font-size:14px;letter-spacing:0}.sg-board .sg-card .sg-sub{font-size:11px;line-height:1.6;margin-bottom:18px}.sg-board .sg-kpis{gap:14px;margin:0 0 18px}.sg-board .sg-kpi{border-radius:12px;padding:18px 20px;display:block;min-height:120px;position:relative;overflow:hidden}.sg-board .sg-kpi:before{content:'';position:absolute;width:4px;height:25px;border-radius:4px;background:var(--accent);left:0;top:19px}.sg-board .sg-kpi:nth-child(2):before{background:#47a992}.sg-board .sg-kpi:nth-child(3):before{background:#e9a04a}.sg-board .sg-kpi:nth-child(4):before{background:#9476d5}.sg-board .sg-kpi-label{display:block;font-size:11px}.sg-board .sg-kpi .sg-kpi-val{margin:12px 0 8px;font-size:30px;font-weight:650;letter-spacing:-1px;font-variant-numeric:tabular-nums}.sg-board .sg-kpi .sg-kpi-val small{font-size:11px;letter-spacing:0;margin-left:10px}.sg-board .sg-kpi-note{display:block;font-size:10px;color:var(--muted);line-height:1.6}
+.sg-board-overview{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:18px;margin-bottom:22px;align-items:stretch}.sg-board .sg-board-overview>.sg-card{margin:0}.sg-board .sg-board-overview .sg-chart{width:100%;height:230px;max-height:none;min-width:0}.sg-board .sg-board-overview .sg-legend{margin:6px 0 12px;font-size:11px;gap:20px}.sg-board .sg-board-overview .sg-dt{margin-top:14px}.sg-board .sg-board-overview .sg-note{font-size:10px;line-height:1.7}.sg-week-list{display:grid;gap:4px;max-height:268px;overflow:auto}.sg-week-item{border:0;background:transparent;text-align:left;padding:11px 12px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer}.sg-week-item:hover{background:#f6f7fc}.sg-week-item.on{background:var(--accent-wash);color:var(--accent-ink)}.sg-week-item b{display:block;font-size:12px;font-weight:600}.sg-week-item small{display:block;margin-top:4px;font-size:10px;color:var(--muted)}.sg-week-item>span:last-child{font-size:12px;font-weight:600;white-space:nowrap}.sg-board .sg-sect{display:flex;align-items:center;font-size:14px;font-weight:600;margin:24px 0 14px}.sg-board .sg-sect:before{content:'';width:4px;height:15px;background:var(--accent);border-radius:3px;margin-right:9px}.sg-board .sg-g11{gap:18px;margin-bottom:18px}.sg-board .sg-chart{max-height:270px}.sg-board .sg-card-head{margin-bottom:0}.sg-board th{background:#f8f9fc;color:#8290a6;font-size:10px;font-weight:500;white-space:nowrap}.sg-board td{font-size:12px;padding-top:12px;padding-bottom:12px;font-variant-numeric:tabular-nums}.sg-board table{font-size:12px}.sg-board .sg-hbars{gap:14px}.sg-board .sg-hbar-label{font-size:11px}.sg-board .sg-bar{height:5px;background:#eef1f8}.sg-board .sg-bar i{border-radius:4px}.sg-board .sg-note{font-size:11px}.sg-board .sg-btn{border-radius:7px;font-size:12px}.sg-board .sg-btn.primary{box-shadow:0 3px 8px #4663df18}
+.sg-trend-pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}.sg-trend-pair h3{font-size:11px;color:var(--muted);font-weight:500;margin:0 0 10px}.sg-trend-pair .sg-chart{height:200px!important}.sg-donut-wrap{display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px;align-items:center}.sg-donut{width:140px;height:140px;border-radius:50%;position:relative;display:grid;place-items:center;background:var(--donut-fill,#edf0f6)}.sg-donut:before{content:'';position:absolute;inset:18px;border-radius:50%;background:white}.sg-donut>span{z-index:1;text-align:center;font-size:11px;color:var(--muted)}.sg-donut b{display:block;color:var(--ink);font-size:27px;margin-bottom:5px;font-variant-numeric:tabular-nums}.sg-donut-wrap td{padding:8px 5px}.sg-donut-wrap th{padding:8px 5px}
+@container (width <= 1100px){.sg-board-overview{grid-template-columns:minmax(0,1fr) 210px}.sg-board .sg-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.sg-donut-wrap{grid-template-columns:1fr}.sg-donut{margin:0 auto}.sg-board .sg-main{padding:20px}}
+@container (width <= 760px){.sg-board-overview{grid-template-columns:1fr}.sg-week-list{grid-template-columns:repeat(2,minmax(0,1fr));max-height:160px}.sg-board .sg-g11{grid-template-columns:1fr}.sg-board .sg-board-filters>.sg-seg{width:100%;margin:0}.sg-board .sg-board-filters .sg-seg button{flex:1}.sg-trend-pair{grid-template-columns:1fr}.sg-trend-pair .sg-chart{height:170px!important}.sg-board .sg-board-overview .sg-chart{height:210px}.sg-donut-wrap{grid-template-columns:125px minmax(0,1fr);gap:8px}.sg-donut{width:115px;height:115px}.sg-board .sg-card{padding:17px}.sg-board .sg-main{padding:16px 12px 35px}.sg-board .sg-kpi{padding:15px;min-height:112px}.sg-board .sg-head{align-items:flex-start;flex-direction:row}.sg-board .sg-head h1{font-size:23px}.sg-board .sg-head .sg-actions{flex-wrap:wrap;justify-content:flex-end}.sg-board .sg-kpi-note{font-size:10px}}
 `;
 
 // Bundled into the native ModuleLoader factory by build.mjs. Uses host React.
@@ -629,8 +666,9 @@ function createApplication(React,logic){
  const DEFAULT_EXECUTION_MODEL='';
  const readDraft=()=>{try{return JSON.parse(localStorage.getItem('dsh.seo-geo.draft')||'{}')}catch{return {}}};
  const labels={untested:'待测试',ready:'已验收',queued:'待运行',running:'执行中',paused:'已暂停',needs_login:'需要登录',blocked:'需要人工处理',failed:'失败',needs_review:'待核对证据',completed:'已完成'};
+ let requestBrand='',operationBrand='';
  const call=async(path,data={})=>{
-  const r=await fetch('/api/seo-geo-v3/'+path,{method:'POST',headers:{'Content-Type':'application/json','X-DSH-Monitor':'1'},body:JSON.stringify(data)});
+  const r=await fetch('/api/seo-geo-v3/'+path,{method:'POST',headers:{'Content-Type':'application/json','X-DSH-Monitor':'1',...(path==='state'?{}:{'X-DSH-Brand':operationBrand||requestBrand})},body:JSON.stringify(data)});
   let value;try{value=await r.json();}catch{
    throw Error(r.status===404?'工作台后台尚未加载成功。请检查 DSH 插件状态；后台恢复后点击重新连接。':'工作台接口响应异常（HTTP '+r.status+'），请稍后重新连接。');
   }
@@ -649,7 +687,7 @@ function createApplication(React,logic){
  async function ownedSession(runtime,key,{signal}={}){
   const host=runtime?.desktopWorkbenches;
   if(!host?.ensureSession||!host?.ownsSession||!host.isActive())throw Error('请先打开 SEO/GEO 工作台，再开始此操作');
-  const storageKey='dsh.seo-geo.owned-sessions.v1';
+  const storageKey='dsh.seo-geo.owned-sessions.v1'+((operationBrand||requestBrand)&& (operationBrand||requestBrand)!=='legacy'?'.'+(operationBrand||requestBrand):'');
   let saved={};try{saved=JSON.parse(localStorage.getItem(storageKey)||'{}');}catch{}
   let sessionId=key?saved[key]:null;
   if(sessionId&&!host.ownsSession(sessionId))sessionId=null;
@@ -791,8 +829,21 @@ function createApplication(React,logic){
   if(!items?.length)return empty('暂无数据。');
   const max=Math.max(...items.map(x=>x.value),1);
   return h('div',{className:'sg-hbars'},items.map(x=>h('div',{className:'sg-hbar',key:x.name},
-   h('div',{className:'sg-hbar-label'},h('span',null,x.name),h('b',null,fmtv(x.value))),
+   h('div',{className:'sg-hbar-label'},h('span',{title:x.name},x.name),h('b',null,fmtv(x.value))),
    h('div',{className:'sg-bar'},h('i',{style:{width:(100*x.value/max)+'%'}})))));
+ };
+
+ const volumeTrend=(weeks,key)=>{
+  const W=420,H=200,L=46,R=16,T=18,B=30;
+  const values=weeks.map(w=>key==='clicks'?(w.a.seo.length?w.a.seoAgg.totals.clicks:null):(w.a.traffic.length?(w.a.seoBoard.site?.visits??w.a.seoBoard.totalChannelVisits):null));
+  if(values.every(v=>v===null))return empty('暂无可按周统计的数据');
+  const max=Math.max(...values.filter(v=>v!==null),1)*1.15,x=i=>L+i*(W-L-R)/Math.max(1,weeks.length-1),y=v=>T+(H-T-B)*(1-v/max);
+  let pen=false;const d=values.map((v,i)=>{if(v===null){pen=false;return '';}const part=(pen?'L':'M')+x(i)+','+y(v);pen=true;return part;}).join('');
+  return h('svg',{className:'sg-chart',viewBox:'0 0 '+W+' '+H,role:'img','aria-label':key==='clicks'?'每周搜索点击趋势':'每周官网访问趋势'},
+   [0,.5,1].map(f=>h('g',{key:f},h('line',{x1:L,x2:W-R,y1:y(f*max),y2:y(f*max),stroke:'var(--line)',strokeDasharray:'3 4'}),h('text',{x:L-8,y:y(f*max),textAnchor:'end',dominantBaseline:'middle',fontSize:10,fill:'var(--muted)'},Intl.NumberFormat('zh-CN',{notation:'compact',maximumFractionDigits:1}).format(f*max)))),
+   h('path',{d,fill:'none',stroke:key==='clicks'?'var(--accent)':'#47a992',strokeWidth:2.5}),
+   values.map((v,i)=>v===null?null:h('circle',{key:i,cx:x(i),cy:y(v),r:4,fill:key==='clicks'?'var(--accent)':'#47a992',stroke:'white',strokeWidth:2},h('title',null,weeks[i].name+' · '+v+' 次'))),
+   weeks.map((w,i)=>i%Math.ceil(weeks.length/4)===0||i===weeks.length-1?h('text',{key:w.id,x:x(i),y:H-8,textAnchor:'middle',fontSize:10,fill:'var(--muted)'},w.from.slice(5)):null));
  };
  const highlightText=(text,brand)=>{
   const bt=[...(brand?.aliases||[]),brand?.domain].filter(Boolean);
@@ -824,9 +875,9 @@ function createApplication(React,logic){
     h('span',{className:'sg-kpi-note'},note||'当前范围内主体确认为我方的回答占比'));
   };
   return h('div',{className:'sg-kpis'},
-   tile('我方提及率',(total?Math.round(100*aa.entity.ours/total):0)+'%',aa.entity.ours+' / '+total,delta('ours'),true,null),
-   tile('官网引用率',(total?Math.round(100*aa.cited/total):0)+'%',aa.cited+' / '+total,delta('cited'),true,null,'正式引用里含官网链接的样本占比'),
-   tile('同名劫持占比',(total?Math.round(100*aa.entity.rival/total):0)+'%',aa.entity.rival+' / '+total,delta('rival'),false,null,'名字在说我们、实际在说别人'),
+   tile('我方提及率',total?Math.round(100*aa.entity.ours/total)+'%':'—',aa.entity.ours+' / '+total,delta('ours'),true,null),
+   tile('官方来源引用率',total?Math.round(100*aa.cited/total)+'%':'—',aa.cited+' / '+total,delta('cited'),true,null,'正式引用包含官网或配置的官方来源的回答占比'),
+   tile('同名主体占比',total?Math.round(100*aa.entity.rival/total)+'%':'—',aa.entity.rival+' / '+total,delta('rival'),false,null,'名字在说我们、实际在说别人'),
    tile('待核对样本',String(pending||0),'条',null,true,null,'核对后才计入指标'));
  };
  const platformMatrix=(aa,brand)=>{
@@ -838,7 +889,7 @@ function createApplication(React,logic){
    return c;}).sort((p,q)=>(q.ours/q.total)-(p.ours/p.total));
   const W=560,LW=96,RW=96,rowH=30,gap=8,H=10+rows.length*(rowH+gap);
   const BW=W-LW-RW;
-  const segs=[['ours','我方','var(--s-ours)'],['mixed','混合','var(--s-mixed)'],['rival','竞品 / 同名','var(--s-rival)'],['unj','待判定','var(--s-unjudged)'],['none','未提及','var(--s-none)']];
+  const segs=[['ours','我方','var(--s-ours)'],['mixed','混合','var(--s-mixed)'],['rival','同名其他主体','var(--s-rival)'],['unj','待判定','var(--s-unjudged)'],['none','未提及','var(--s-none)']];
   return h('div',null,
    h('svg',{className:'sg-chart',viewBox:'0 0 '+W+' '+H},
     rows.map((r,i)=>{let acc=0;const y=10+i*(rowH+gap);
@@ -848,21 +899,21 @@ function createApplication(React,logic){
       h('text',{x:W,y:y+rowH/2,fontSize:12,fill:'var(--ink2)',textAnchor:'end',dominantBaseline:'middle'},Math.round(100*r.ours/r.total)+'% 我方 · '+r.total+' 条'));}),
    ),
    h('div',{className:'sg-legend'},segs.map(([k,label,color])=>h('span',{key:k},h('i',{style:{background:color}}),label))),
-   h('details',{className:'sg-dt'},h('summary',null,'查看数据表'),h('table',null,h('thead',null,h('tr',null,['平台','我方','混合','竞品 / 同名','待判定','未提及','样本'].map(x=>h('th',{key:x},x)))),h('tbody',null,rows.map(r=>h('tr',{key:r.name},[r.name,r.ours,r.mixed,r.rival,r.unj,r.none,r.total].map((v,j)=>h('td',{key:j},v))))))));
+   h('details',{className:'sg-dt'},h('summary',null,'查看数据表'),h('table',null,h('thead',null,h('tr',null,['平台','我方','混合','同名其他主体','待判定','未提及','样本'].map(x=>h('th',{key:x},x)))),h('tbody',null,rows.map(r=>h('tr',{key:r.name},[r.name,r.ours,r.mixed,r.rival,r.unj,r.none,r.total].map((v,j)=>h('td',{key:j},v))))))));
  };
  const funnelChart=aa=>h('div',null,
-  hbars([{name:'有效样本',value:aa.geo.length},{name:'回答提到品牌',value:aa.mentions},{name:'主体确认我方',value:aa.entity.ours},{name:'正式引用官网',value:aa.cited}],{fmtv:v=>v+' 条 · '+(aa.geo.length?Math.round(100*v/aa.geo.length):0)+'%'}),
+  hbars([{name:'有效样本',value:aa.geo.length},{name:'回答提到品牌',value:aa.mentions},{name:'主体确认我方',value:aa.entity.ours},{name:'引用官方来源',value:aa.cited}],{fmtv:v=>v+' 条 · '+(aa.geo.length?Math.round(100*v/aa.geo.length):0)+'%'}),
   h('p',{className:'sg-sub',style:{marginTop:'16px'}},'均以有效样本为分母；各项可能重叠，不构成转化漏斗。被引用不等于被推荐。'));
- // 品牌指标趋势：按批次两条线（我方提及率 / 官网引用率），虚线为动作记录日。
- const trendChart=(bb,activities)=>{
+ // 品牌指标趋势：按批次两条线（我方提及率 / 官方来源引用率），虚线为动作记录日。
+ const trendChart=(bb,activities,showTable=true)=>{
   if(!bb||!bb.length)return empty('积累多个批次的采样后展示趋势。');
   const W=600,H=190,PL=38,PR=70,PT=18,PB=26;
-  const t=bb.map(b=>({fd:b.date,d:String(b.date).slice(5),ours:b.total?100*b.ours/b.total:0,cited:b.total?100*b.cited/b.total:0,n:b.total}));
+  const t=bb.map(b=>({fd:b.date,d:String(b.date).slice(5),ours:b.total?100*b.ours/b.total:null,cited:b.total?100*b.cited/b.total:null,n:b.total}));
   const maxV=Math.max(5,Math.ceil(Math.max(1,...t.map(p=>Math.max(p.ours,p.cited)))/5)*5);
   const x=i=>t.length<2?PL+(W-PL-PR)/2:PL+i*(W-PL-PR)/(t.length-1);
   const y=v=>PT+(1-v/maxV)*(H-PT-PB);
   const dn=s=>{const d=Date.parse(s);return Number.isFinite(d)?d/864e5:0;};
-  const line=key=>t.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+','+y(p[key]).toFixed(1)).join('');
+  const line=key=>{let pen=false;return t.map((p,i)=>{if(p[key]===null){pen=false;return '';}const c=(pen?'L':'M')+x(i).toFixed(1)+','+y(p[key]).toFixed(1);pen=true;return c;}).join('');};
   const d0=dn(t[0].fd),d1=dn(t[t.length-1].fd);
   const xm=dd=>{const v=dn(dd);if(d1===d0)return x(0);return x(0)+(v-d0)/(d1-d0)*(x(t.length-1)-x(0));};
   const markers=(activities||[]).filter(av=>av.date&&dn(av.date)>=d0-3&&dn(av.date)<=d1+3);
@@ -871,16 +922,16 @@ function createApplication(React,logic){
     [0,0.25,0.5,0.75,1].map(f=>h('g',{key:f},h('line',{x1:PL,x2:W-PR,y1:y(maxV*f),y2:y(maxV*f),stroke:'var(--grid)',strokeDasharray:'3 4'}),h('text',{x:PL-6,y:y(maxV*f),fontSize:10,fill:'var(--muted)',textAnchor:'end',dominantBaseline:'middle'},Math.round(maxV*f)+'%'))),
     h('path',{d:line('ours'),fill:'none',stroke:'var(--s-ours)',strokeWidth:2}),
     h('path',{d:line('cited'),fill:'none',stroke:'var(--s-rival)',strokeWidth:2}),
-    t.map((p,i)=>h('g',{key:'o'+i},h('circle',{cx:x(i),cy:y(p.ours),r:3,fill:'var(--s-ours)'},h('title',null,p.fd+' · 我方提及率 '+Math.round(p.ours)+'%（'+p.n+' 条）')))),
-    t.map((p,i)=>h('g',{key:'c'+i},h('circle',{cx:x(i),cy:y(p.cited),r:3,fill:'var(--s-rival)'},h('title',null,p.fd+' · 官网引用率 '+Math.round(p.cited)+'%')))),
+    t.map((p,i)=>p.n?h('g',{key:'o'+i},h('circle',{cx:x(i),cy:y(p.ours),r:3,fill:'var(--s-ours)'},h('title',null,p.fd+' · 我方提及率 '+Math.round(p.ours)+'%（'+p.n+' 条）'))):null),
+    t.map((p,i)=>p.n?h('g',{key:'c'+i},h('circle',{cx:x(i),cy:y(p.cited),r:3,fill:'var(--s-rival)'},h('title',null,p.fd+' · 官方来源引用率 '+Math.round(p.cited)+'%'))):null),
     t.map((p,i)=>(i%Math.ceil(t.length/6)===0||i===t.length-1)?h('text',{key:'x'+i,x:x(i),y:H-8,fontSize:10,fill:'var(--muted)',textAnchor:'middle'},p.d):null),
     markers.map((av,i)=>{const mx=Math.max(PL,Math.min(W-PR,xm(av.date)));const ly=PT+10+(i%3)*13;
      return h('g',{key:'m'+i},h('line',{x1:mx,x2:mx,y1:PT,y2:H-PB,stroke:'var(--muted)',strokeDasharray:'4 3',strokeWidth:1},h('title',null,av.date+' · '+av.type+' · '+av.title)),h('text',{x:mx+3,y:ly,fontSize:10,fill:'var(--muted)'},String(av.type||'').slice(0,8)));})),
    h('div',{className:'sg-legend'},
     h('span',null,h('i',{style:{background:'var(--s-ours)'}}),'主体判定为我方'),
-    h('span',null,h('i',{style:{background:'var(--s-rival)'}}),'正式引用官网'),
+    h('span',null,h('i',{style:{background:'var(--s-rival)'}}),'引用官方来源'),
     markers.length?h('span',null,h('i',{style:{background:'var(--muted)'}}),'虚线 = 动作记录日'):null),
-   h('details',{className:'sg-dt'},h('summary',null,'查看数据表'),h('table',null,h('thead',null,h('tr',null,['批次','日期','样本','我方提及','官网引用','同名劫持'].map(x=>h('th',{key:x},x)))),h('tbody',null,bb.map(b=>h('tr',{key:b.id},[b.name,b.date,b.total,(b.total?Math.round(100*b.ours/b.total):0)+'%',(b.total?Math.round(100*b.cited/b.total):0)+'%',(b.total?Math.round(100*b.rival/b.total):0)+'%'].map((v,j)=>h('td',{key:j},v))))))));
+   showTable&&h('details',{className:'sg-dt'},h('summary',null,'查看数据表'),h('table',null,h('thead',null,h('tr',null,['周','日期','样本','我方提及','官网引用','同名主体'].map(x=>h('th',{key:x},x)))),h('tbody',null,bb.map(b=>h('tr',{key:b.id},[b.name,b.date,b.total,(b.total?Math.round(100*b.ours/b.total):0)+'%',(b.total?Math.round(100*b.cited/b.total):0)+'%',(b.total?Math.round(100*b.rival/b.total):0)+'%'].map((v,j)=>h('td',{key:j},v))))))));
  };
  // 证据页逐条卡片：高亮品牌词/竞品词，引用命中动作记录标绿，底部四键改主体。
  function RecCard({r,brand,activities,busy,onJudge,onVerify,onShot,img}){
@@ -889,7 +940,7 @@ function createApplication(React,logic){
    h('div',{className:'sg-row'},pill('src',r.kind==='seo'?'SEO':r.kind==='traffic'?'流量':'研究'),h('b',null,r.keyword||r.page||r.channel||r.location),h('span',{className:'sg-muted'},(r.date||'').slice(0,10))),
    h('pre',{className:'sg-pre'},JSON.stringify(r.raw||r,null,2).slice(0,2000)));
   const eff=r.entityEffective||r.entity||'';
-  const entPill=!r.eligible?pill('unj','待核对'):eff==='ours'?pill('ours','我方'):eff==='rival'?pill('rival','竞品 / 同名'):eff==='mixed'?pill('mixed','混合'):eff==='unknown'?pill('unj','未判定'):pill('unj','待判定');
+  const entPill=!r.eligible?pill('unj','待核对'):eff==='ours'?pill('ours','我方'):eff==='rival'?pill('rival','同名其他主体'):eff==='mixed'?pill('mixed','混合'):eff==='unknown'?pill('unj','未判定'):pill('unj','待判定');
   const full=String(r.answer||'');
   const shown=open||full.length<=220?full:full.slice(0,220)+'…';
   const cites=(r.citations||[]).map(u=>{const cu=canonicalUrl(u);let host='';try{host=new URL(cu).hostname.replace(/^www\./,'');}catch{}const hit=activityFor(cu,activities||[]);return {cu,host:host||cu.slice(0,40),hit};});
@@ -904,7 +955,7 @@ function createApplication(React,logic){
     r.source==='official_web'&&button('截图',()=>onShot(r),false,busy,'sm'),
     r.sourceUrl&&h('a',{className:'sg-link',href:r.sourceUrl,target:'_blank',rel:'noreferrer',style:{fontSize:'12px'}},'原始回答 ↗'),
     !r.eligible&&r.source==='official_web'&&button('核对通过，计入指标',()=>onVerify(r),false,busy,'sm'),
-    r.eligible&&h('span',{className:'sg-seg','aria-label':'主体判定'},[['ours','我方'],['rival','竞品'],['mixed','混合'],['unknown','未判定']].map(([v,t])=>h('button',{key:v,type:'button',className:eff===v?'on':'',onClick:()=>onJudge(r.id,v)},t)))),
+    r.eligible&&h('span',{className:'sg-seg','aria-label':'主体判定'},[['ours','我方'],['rival','同名其他主体'],['mixed','混合'],['unknown','未判定']].map(([v,t])=>h('button',{key:v,type:'button',className:eff===v?'on':'',onClick:()=>onJudge(r.id,v)},t)))),
    (r.entitySignals||[]).length?h('p',{className:'sg-note'},'判定依据：'+r.entitySignals.join('；')+(r.entitySource==='manual'?'（人工）':r.entitySource==='auto'?'（规则自动）':r.entitySource==='auto-llm'?'（AI 自动）':'（规则自动·未固化）')):null,
    img&&h('img',{src:img,alt:'采样截图',style:{maxWidth:'100%',borderRadius:'8px',marginTop:'8px'}}));
  }
@@ -931,6 +982,7 @@ function createApplication(React,logic){
   const scrollSetup=ref=>ref.current?.scrollIntoView({behavior:'smooth',block:'start'});
   useEffect(()=>{mainRef.current?.scrollTo({top:0});},[view]);
   const [boardRange,setBoardRange]=useState('30'),[boardPlatform,setBoardPlatform]=useState(''),[boardGroup,setBoardGroup]=useState('');
+  const [boardMode,setBoardMode]=useState('geo'),[boardWeeks,setBoardWeeks]=useState('8'),[selectedWeek,setSelectedWeek]=useState(''),[keywordFilter,setKeywordFilter]=useState('all'),[keywordLimit,setKeywordLimit]=useState(30),[newBrandName,setNewBrandName]=useState('');
   const [actOpen,setActOpen]=useState(false),[actDraft,setActDraft]=useState({type:'帖子',channel:'',url:'',title:'',note:'',actionKey:''});
   const [showDemand,setShowDemand]=useState(false),[reuseId,setReuseId]=useState('');const reuseInit=useRef(false);
   useEffect(()=>{setReportPreview('');},[JSON.stringify(filter),JSON.stringify(selBatches)]);
@@ -951,17 +1003,20 @@ function createApplication(React,logic){
   useEffect(()=>{try{localStorage.setItem('dsh-seo-geo-execution-model',modelKey);}catch{}},[modelKey]);
   useEffect(()=>{if(runtime)call('configure-session',{catalog:true}).then(setCatalog).catch(e=>setMessage(e.message));},[]);
   const executionSettings=()=>field('执行模型',select(modelKey,setModelKey,[['',catalog?.default?`DSH 默认：${catalog.default.provider} / ${catalog.default.model}`:'使用 DSH 当前模型'],...(catalog?.groups||[]).flatMap(g=>g.models.map(m=>[JSON.stringify({provider:g.id,model:m.id}),`${g.name} / ${m.name}`]))],'执行模型'));
-  const refresh=async()=>{const s=await call('state');if(mounted.current){setState(s);setBrand(b=>b||s.brand);if(!initialView.current){initialView.current=true;if(!s.brand?.name&&!s.records.length&&!s.tasks.length)setView('settings');}}return s;};
+  const refresh=async()=>{const s=await call('state');if(mounted.current){if(requestBrand&&requestBrand!==s.activeBrandId){setBrand(s.brand);setFilter({});setLastEvidence([]);setPreviews([]);setImages({});setSelBatches([]);setOpenHist(null);setReportPreview('');setSeoDocument(null);setSeoCatalog(null);setSeoScope(null);setBoardPlatform('');setBoardGroup('');setSelectedWeek('');setBrandFeedback(null);setCredForm({bingApiKey:'',bingSiteUrl:'',cfToken:'',cfZoneId:'',gscJson:'',gscSiteUrl:''});setQuestion('');setPaste('');setProgress(null);}requestBrand=s.activeBrandId||'';setState(s);setBrand(b=>b||s.brand);if(!initialView.current){initialView.current=true;if(!s.brand?.name&&!s.records.length&&!s.tasks.length)setView('settings');}}return s;};
   useEffect(()=>{mounted.current=true;refresh().catch(e=>setMessage(e.message));return()=>{mounted.current=false;};},[]);
   useEffect(()=>{const timer=setInterval(()=>{if(mounted.current)refresh().catch(()=>{});},5000);return()=>clearInterval(timer);},[]);
   useEffect(()=>{if(!runtime)return;call('chrome-connection').then(setChromeInfo).catch(()=>{});},[runtime]);
-  const perform=async(fn)=>{if(lock.current)return;lock.current=true;setBusy(true);setMessage('');try{await fn();}catch(e){setMessage(e.message);}finally{lock.current=false;if(mounted.current)setBusy(false);}};
+  const perform=async(fn)=>{if(lock.current)return;lock.current=true;operationBrand=requestBrand;setBusy(true);setMessage('');try{await fn();}catch(e){setMessage(e.message);}finally{lock.current=false;operationBrand='';if(mounted.current)setBusy(false);}};
   const act=async a=>{await call('action',a);return refresh();};
   useEffect(()=>{setEvPage(1);},[filter,evEntity,evQuery,evKind,lastEvidence]);
   const go=v=>{setView(v);setMessage('');};
+  const chooseBrand=id=>perform(async()=>{if(jobRunning||seoAiBusy)throw Error('请等待当前报告完成后切换品牌');await call('action',{type:'brand.switch',id});const switched=await refresh();setBrand(switched.brand);setMessage('已切换品牌，历史数据按品牌独立保存。');});
+  const addBrand=()=>perform(async()=>{if(jobRunning||seoAiBusy)throw Error('请等待当前报告完成');await call('action',{type:'brand.create',name:newBrandName});setNewBrandName('');const switched=await refresh();setBrand(switched.brand);go('settings');});
+  const brandList=(key,label,help)=>h('div',{className:'sg-token-editor'},h('div',{className:'sg-token-list'},(brand[key]||[]).map((value,i)=>h('div',{className:'sg-token',key:i},h('input',{'aria-label':label+' '+(i+1),value,placeholder:'输入名称',disabled:busy,style:{width:Math.max(80,Math.min(220,value.length*8+16))+'px'},onChange:e=>setBrand(b=>({...b,[key]:b[key].map((x,j)=>j===i?e.target.value:x)}))}),h('button',{type:'button',className:'sg-token-remove','aria-label':'移除'+label+' '+(value||i+1),title:'移除',disabled:busy,onClick:()=>setBrand(b=>({...b,[key]:b[key].filter((_,j)=>j!==i)}))},'×'))),h('button',{type:'button',className:'sg-token-add',disabled:busy,onClick:()=>setBrand(b=>({...b,[key]:[...(b[key]||[]),'']}))},'+ 添加'+label)),h('p',{className:'sg-note'},help));
   const saveBrand=()=>perform(async()=>{
    setBrandFeedback({status:'saving',text:'正在保存品牌设置…'});
-   try{const saved=await act({type:'brand.save',brand});setBrand(saved.brand);setBrandFeedback({status:'success',text:'品牌设置已保存。下一步：连接浏览器并完成平台自检。'});}
+   try{const saved=await act({type:'brand.save',brand:{...brand,aliases:brand.aliases.map(x=>x.trim()).filter(Boolean),entityRivals:(brand.entityRivals||[]).map(x=>x.trim()).filter(Boolean),competitors:(brand.competitors||[]).map(x=>x.trim()).filter(Boolean)}});setBrand(saved.brand);setBrandFeedback({status:'success',text:'品牌设置已保存。下一步：连接浏览器并完成平台自检。'});}
    catch(e){setBrandFeedback({status:'error',text:'保存失败：'+e.message});throw e;}
   });
   const getExtension=()=>perform(async()=>{
@@ -1000,7 +1055,7 @@ function createApplication(React,logic){
   const submitDemand=()=>perform(async()=>{if(!demand.company.trim())throw Error('请填写公司名称');if(!demand.target.trim())throw Error('请填写优化对象');if(!demand.intent.trim())throw Error('请填写意图问句或核心词/品牌词');setRecDraft('');runQuestionAgent(demandSummary()).catch(()=>{});});
   const sendDemandChat=()=>{const q=chatInput.trim();if(!q)return;setChatInput('');runQuestionAgent(demandSummary()+'\n当前推荐问题草稿：\n'+recDraft,q).catch(()=>{});};
   const copyQuestions=append=>{const lines=parseQuestions(recDraft);if(!lines.length){setMessage('没有可复制的推荐问题。');return;}setQuestion(q=>append&&q.trim()?q.trim()+'\n'+lines.join('\n'):lines.join('\n'));setMessage(`已${append?'追加':'复制'} ${lines.length} 个问题到问题集。`);setShowDemand(false);setTimeout(()=>{const el=document.querySelector('textarea[aria-label="问题集"]');if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.focus();el.setSelectionRange(el.value.length,el.value.length);}},180);};
-  const demandForm=panel('国内 GEO 需求单',h('p',{className:'sg-note'},'先填需求，再由 DSH 在后台自动推荐搜索问题（不占用右侧对话，生成时显示预计时间）；确认后可直接复制到采集问题集。带 * 为必填。'),h('div',{className:'sg-grid'},field('1 公司名称 *',input(demand.company,v=>setDemandField('company',v),'公司名称')),field('2 优化对象 *',input(demand.target,v=>setDemandField('target',v),'品牌或产品')),field('3 优化平台',input(demand.platforms,v=>setDemandField('platforms',v),'优化平台')),field('4 优化周期',select(demand.cycle,v=>setDemandField('cycle',v),['3个月','6个月','12个月'].map(x=>[x,x]),'优化周期')),field('5 预计执行时间',input(demand.startDate,v=>setDemandField('startDate',v),'预计执行时间','date')),field('6 效果指标',select(demand.effect,v=>setDemandField('effect',v),['推荐率','前三推荐率','优先推荐率','品牌主体占有率','官网引用率'].map(x=>[x,x]),'效果指标')),field('7 竞品',input(demand.competitors,v=>setDemandField('competitors',v),'竞品'))),field('8 意图问句 *',h('textarea',{'aria-label':'意图问句',value:demand.intent,onChange:e=>setDemandField('intent',e.target.value),placeholder:'即您想优化的内容，例如：哪个新能源方盒子车型比较好开；或提供核心词/品牌词，我们来为您筛选意图问句'})),field('9 企业实力',h('textarea',{'aria-label':'企业实力',value:demand.strength,onChange:e=>setDemandField('strength',e.target.value),placeholder:'如：市场业绩、技术能力、品牌口碑声誉、生态优势等'})),h('div',{className:'sg-toolbar'},button(qJobRunning?'正在后台生成…':'填好，生成推荐问题',submitDemand,true,busy||qJobRunning),button('清空需求单',()=>setDemand({company:'',target:'',intent:'',platforms:'',cycle:'3个月',startDate:'',effect:'推荐率',competitors:'',strength:''}),false,busy)));
+  const demandForm=panel('国内 GEO 需求单',h('p',{className:'sg-note'},'先填需求，再由 DSH 在后台自动推荐搜索问题（不占用右侧对话，生成时显示预计时间）；确认后可直接复制到采集问题集。带 * 为必填。'),h('div',{className:'sg-grid'},field('1 公司名称 *',input(demand.company,v=>setDemandField('company',v),'公司名称')),field('2 优化对象 *',input(demand.target,v=>setDemandField('target',v),'品牌或产品')),field('3 优化平台',input(demand.platforms,v=>setDemandField('platforms',v),'优化平台')),field('4 优化周期',select(demand.cycle,v=>setDemandField('cycle',v),['3个月','6个月','12个月'].map(x=>[x,x]),'优化周期')),field('5 预计执行时间',input(demand.startDate,v=>setDemandField('startDate',v),'预计执行时间','date')),field('6 效果指标',select(demand.effect,v=>setDemandField('effect',v),['推荐率','前三推荐率','优先推荐率','品牌主体占有率','官方来源引用率'].map(x=>[x,x]),'效果指标')),field('7 竞品',input(demand.competitors,v=>setDemandField('competitors',v),'竞品'))),field('8 意图问句 *',h('textarea',{'aria-label':'意图问句',value:demand.intent,onChange:e=>setDemandField('intent',e.target.value),placeholder:'即您想优化的内容，例如：哪个新能源方盒子车型比较好开；或提供核心词/品牌词，我们来为您筛选意图问句'})),field('9 企业实力',h('textarea',{'aria-label':'企业实力',value:demand.strength,onChange:e=>setDemandField('strength',e.target.value),placeholder:'如：市场业绩、技术能力、品牌口碑声誉、生态优势等'})),h('div',{className:'sg-toolbar'},button(qJobRunning?'正在后台生成…':'填好，生成推荐问题',submitDemand,true,busy||qJobRunning),button('清空需求单',()=>setDemand({company:'',target:'',intent:'',platforms:'',cycle:'3个月',startDate:'',effect:'推荐率',competitors:'',strength:''}),false,busy)));
   const questionPanel=panel('推荐问题（后台自动生成）',h('p',{className:'sg-note'},'点「填好，生成推荐问题」后，DSH 在后台会话自动生成推荐问题（不占用右侧对话），完成后自动填入下方草稿；也可以在下方继续提调整要求，将基于当前草稿在后台修订。'),qJob?h('p',{className:'sg-note'},qJob.done?(qJob.error?('上次生成失败：'+qJob.error+'——可重新点击生成。'):'上次后台生成已完成。'):('正在后台生成推荐问题 · 已进行 '+elapsedMin(qJob.startedAt)+' 分钟 · 预计约 1~2 分钟；可继续填写其他内容，完成后草稿自动更新。')):null,field('继续定制问题',h('textarea',{'aria-label':'继续定制问题',value:chatInput,onChange:e=>setChatInput(e.target.value),placeholder:'例如：多加“非程序员”“本地文件”“AI PPT”场景；减少品牌词；每个问题不超过 30 字。'})),h('div',{className:'sg-toolbar'},button('按调整要求重新生成',sendDemandChat,true,busy||qJobRunning)),field('推荐问题（可编辑）',h('textarea',{'aria-label':'推荐问题',value:recDraft,onChange:e=>setRecDraft(e.target.value),placeholder:'DSH 推荐的问题会出现在这里，每行一个。'})),h('div',{className:'sg-toolbar'},button('复制到问题集',()=>copyQuestions(false),true,busy||!parseQuestions(recDraft).length),button('追加到问题集',()=>copyQuestions(true),false,busy||!parseQuestions(recDraft).length)));
   const reportIdentity=async text=>{const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(state.brand.domain+'\n'+text));return 'report:'+Array.from(new Uint8Array(bytes),x=>x.toString(16).padStart(2,'0')).join('');};
   const htmlToText=html=>{try{const doc=new DOMParser().parseFromString(String(html||''),'text/html');return (doc.body.innerText||'').replace(/\n{3,}/g,'\n\n').slice(0,60000);}catch(e){return String(html||'').replace(/<[^>]+>/g,' ').replace(/\s{2,}/g,' ').slice(0,60000);}};
@@ -1237,45 +1292,52 @@ function createApplication(React,logic){
      card('任务进度',null,progressBody)));
   }
   if(view==='board'){
-   const bf={};if(boardRange!=='all')bf.from=new Date(Date.now()-(Number(boardRange)-1)*864e5).toISOString().slice(0,10);
-   if(boardPlatform)bf.platform=boardPlatform;if(boardGroup)bf.group=boardGroup;
-   const aB=analyse(state,bf);
-   const aTraffic=analyse(state,{from:bf.from,to:bf.to});
-   const bb=(state.batches||[]).map(b=>{const items=aB.geo.filter(r=>taskBatchMap.get(r.taskId)===b.id);if(!items.length)return null;return {id:b.id,name:b.name,date:new Date(b.createdAt).toISOString().slice(0,10),total:items.length,ours:items.filter(r=>r.entityEffective==='ours').length,mixed:items.filter(r=>r.entityEffective==='mixed').length,rival:items.filter(r=>r.entityEffective==='rival').length,cited:items.filter(r=>(r.citations||[]).map(canonicalUrl).some(u=>isOfficialCitation(u,state.brand))).length};}).filter(Boolean);
+   const f={};if(boardPlatform)f.platform=boardPlatform;if(boardGroup)f.group=boardGroup;
+   const weeks=weeklyAnalyses(state,Number(boardWeeks),boardMode==='geo'?f:{});
+   const fallback=weeks.slice().reverse().find(w=>!w.current&&(boardMode==='geo'?w.total:w.a.seo.length||w.a.traffic.length))||weeks.slice().reverse().find(w=>!w.current)||weeks.at(-1);
+   const chosenWeek=weeks.find(w=>w.id===selectedWeek)||fallback;
+   const aB=chosenWeek.a,aTraffic=weeklyAnalyses(state,Number(boardWeeks),{}).find(w=>w.id===chosenWeek.id).a;
    const plats=[...new Set(state.records.filter(r=>r.kind==='geo').map(r=>r.platform).filter(Boolean))];
    const groups=[...new Set(state.records.filter(r=>r.kind==='geo').map(r=>r.group).filter(Boolean))];
-   const hasAny=aB.geo.length>0||aTraffic.seo.length>0||aTraffic.traffic.length>0;
-   const aiRefs=aTraffic.seoBoard.aiReferrers||[];const aiTotal=aiRefs.reduce((t,x)=>t+x.visits,0);
-   const quickWins=(aTraffic.seoAgg.keywords||[]).filter(k=>k.impressions>=100&&k.position!==null&&k.position>=4&&k.position<=15&&(k.ctr===null||k.ctr<0.02));
+   const aiRefs=aTraffic.seoBoard.aiReferrers||[],aiTotal=aiRefs.reduce((t,x)=>t+x.visits,0);
+   const unknownPeriods=state.records.filter(r=>['seo','traffic'].includes(r.kind)&&(!r.date||isUnweeklyRecord(r,state))).length;
+   const allKeys=(aTraffic.seoAgg.keywords||[]).slice().sort((a,b)=>(a.position??Infinity)-(b.position??Infinity)||b.impressions-a.impressions);
+   const kw=allKeys.filter(k=>keywordFilter==='all'||keywordFilter==='top'&&k.position!==null&&k.position<=3||keywordFilter==='near'&&k.position>=4&&k.position<=15||keywordFilter==='later'&&k.position>=16||keywordFilter==='low'&&k.impressions>=100&&k.ctr!==null&&k.ctr<0.02);
+   const detailIds=entity=>aB.geo.filter(r=>entity==='none'?!(state.brand.aliases||[]).some(al=>containsBrand(r.answer,al))&&!['ours','mixed','rival'].includes(r.entityEffective):entity==='unknown'?(!r.entityEffective||r.entityEffective==='unknown')&&(state.brand.aliases||[]).some(al=>containsBrand(r.answer,al)):r.entityEffective===entity).map(r=>r.id);
+   const entitySegments=[['ours','明确我方','#526be7'],['rival','同名其他主体','#e9a04a'],['mixed','混合或混淆','#9476d5'],['unknown','提及但待判定','#a9b1c1'],['none','未提及','#e8ecf3']];
+   const openRecords=ids=>{setFilter({});setLastEvidence(ids);setEvKind('geo');setAnalysisTab('records');go('evidence');};
+   const fmt=v=>v===null||v===undefined?'—':(v*100).toFixed(1)+'%';
+   const weeklyTable=table(boardMode==='geo'?['周（点击查看）','状态','有效样本','我方提及率','官方来源引用率','同名主体占比']:['周（点击查看）','状态','搜索曝光','点击','CTR','官网访问','AI 来源访问'],weeks.slice().reverse().map(w=>{
+     const a=w.a,t=a.seoAgg.totals,visits=a.seoBoard.site?.visits??a.seoBoard.totalChannelVisits;
+     return [button(w.name,()=>setSelectedWeek(w.id),w.id===chosenWeek.id,false,'sm'),w.current?'进行中':'完整周',...(boardMode==='geo'?[w.total,w.total?fmt(w.ours/w.total):'—',w.total?fmt(w.cited/w.total):'—',w.total?fmt(w.rival/w.total):'—']:[a.seo.length?t.impressions:'—',a.seo.length?t.clicks:'—',fmt(t.ctr),a.traffic.length?visits:'—',a.traffic.length?a.seoBoard.aiReferrers.reduce((n,x)=>n+x.visits,0):'—'])];
+   }));
    content=h(React.Fragment,null,
-    header('看板','看清品牌表现、AI 引用来源与官网流量',button('去行动页',()=>go('action')),button('新建采集',()=>go('collect'),true)),
-    h('div',{className:'sg-filters'},
-     select(boardRange,setBoardRange,[['7','近 7 天'],['30','近 30 天'],['90','近 90 天'],['all','全部']],'时间范围'),
-     select(boardPlatform,setBoardPlatform,[['','全部平台'],...plats.map(x=>[x,x])],'平台'),
-     select(boardGroup,setBoardGroup,[['','全部题型'],...groups.map(x=>[x,x])],'题型'),
-     h('span',{className:'sg-sp'}),
-     h('span',{className:'sg-muted'},'口径：提及率 = 主体判定为我方 / 有效样本；引用率 = 正式引用含官网 / 有效样本；同名项目的名字命中不计入。')),
-    hasAny?h(React.Fragment,null,
-     kpiRow(aB,bb,aB.selected.filter(r=>r.kind==='geo'&&!r.eligible).length),
-     h('div',{className:'sg-sect'},'谁在说我们'),
-     h('div',{className:'sg-cols sg-g31'},
-      card('各平台 · 谁在回答里出现','主体判定口径；待判定样本可在「证据」页一键采纳',platformMatrix(aB,state.brand)),
-      card('品牌与引用覆盖','同一分母，分别观察',funnelChart(aB))),
-     h('div',{className:'sg-sect'},'趋势与行动效果'),
-     h('div',{className:'sg-cols sg-g31'},
-      card('品牌指标趋势','按批次观察；题目、平台不同会影响比例，不能直接归因于行动',trendChart(bb,[])),
-      card('AI 平台引荐访问','从 AI 平台点进官网的访问（Cloudflare）',
-       aiRefs.length?h('div',null,hbars(aiRefs.slice(0,6).map(x=>({name:x.name,value:x.visits})),{fmtv:v=>v+' 次'}),h('div',{className:'sg-kv'},h('span',null,'合计'),h('b',null,aiTotal+' 次'))):empty('还没有 AI 引荐访问记录。同步 Cloudflare 后展示。'))),
-     h('div',{className:'sg-sect'},'SEO · 官网流量（仅受时间筛选影响）'),
+    header('看板','按周看变化，进入一周查看原因',button('去行动页',()=>go('action')),button('新建采集',()=>go('collect'),true)),
+    h('div',{className:'sg-filters sg-board-filters'},h('div',{className:'sg-seg','aria-label':'SEO GEO 看板切换'},[['geo','GEO · AI 回答表现'],['seo','SEO · 搜索与网站流量']].map(([id,label])=>h('button',{key:id,type:'button',className:boardMode===id?'on':'',onClick:()=>setBoardMode(id)},label))),select(boardWeeks,setBoardWeeks,[['8','最近 8 周'],['12','最近 12 周'],['26','最近 26 周']],'周趋势范围'),boardMode==='geo'&&select(boardPlatform,setBoardPlatform,[['','全部平台'],...plats.map(x=>[x,x])],'平台'),boardMode==='geo'&&select(boardGroup,setBoardGroup,[['','全部题型'],...groups.map(x=>[x,x])],'题型')),
+    boardMode==='geo'?kpiRow(aB,weeks,state.records.filter(r=>r.kind==='geo'&&!r.eligible&&weekStart(r.date)===chosenWeek.id).length):h('div',{className:'sg-kpis'},[['搜索曝光',aTraffic.seo.length?aTraffic.seoAgg.totals.impressions:'—','搜索结果中的展示次数'],['搜索点击',aTraffic.seo.length?aTraffic.seoAgg.totals.clicks:'—','用户从搜索结果进入网站'],['官网访问',aTraffic.traffic.length?(aTraffic.seoBoard.site?.visits??aTraffic.seoBoard.totalChannelVisits):'—','网站统计记录的访问次数'],['AI 来源访问',aTraffic.traffic.length?aiTotal:'—','来自已识别 AI 网站的访问']].map(([label,value,note])=>h('article',{className:'sg-kpi',key:label},h('span',{className:'sg-kpi-label'},label),h('div',{className:'sg-kpi-val'},typeof value==='number'?value.toLocaleString('zh-CN'):value),h('span',{className:'sg-kpi-note'},note)))),
+    h('div',{className:'sg-board-overview'},
+     card('每周表现趋势','北京时间 · 周一至周日 · '+(chosenWeek.current?'所选周进行中':'指标对应下方所选周'),
+      boardMode==='geo'?(weeks.some(w=>w.total)?trendChart(weeks,state.activities,false):empty('暂无可按周统计的有效 AI 回答。')):h('div',{className:'sg-trend-pair'},h('div',null,h('h3',null,'搜索点击'),volumeTrend(weeks,'clicks')),h('div',null,h('h3',null,'官网访问'),volumeTrend(weeks,'visits'))),
+      h('details',{className:'sg-dt'},h('summary',null,'展开每周数据明细'),weeklyTable),
+      h('p',{className:'sg-note'},'缺失数据留空。行动标记表示发生时间，不代表因果关系。'+(unknownPeriods?' '+unknownPeriods+' 条累计快照／日期不完整数据另行查看。':''))),
+     card('查看某一周','选择周次，查看该周的指标与分布',h('div',{className:'sg-week-list'},weeks.slice().reverse().map(w=>h('button',{type:'button',key:w.id,className:'sg-week-item'+(w.id===chosenWeek.id?' on':''),onClick:()=>setSelectedWeek(w.id),'aria-label':w.name,'aria-pressed':w.id===chosenWeek.id},h('span',null,h('b',null,w.from.slice(5)+' — '+w.to.slice(5)),h('small',null,w.current?'进行中':(boardMode==='geo'?w.total+' 条有效样本':w.a.seo.length||w.a.traffic.length?'有数据':'暂无数据'))),h('span',null,boardMode==='geo'?(w.total?fmt(w.ours/w.total):'—'):(w.a.seo.length?w.a.seoAgg.totals.clicks.toLocaleString()+' 次':'—'))))))) ,
+    h('div',{className:'sg-sect'},'周详情 · '+chosenWeek.name+(chosenWeek.current?'（进行中）':'')),
+    boardMode==='geo'?h(React.Fragment,null,
+
      h('div',{className:'sg-cols sg-g11'},
-      card('访问来源渠道','按访问量',
-       (aTraffic.seoBoard.channels||[]).length?hbars(aTraffic.seoBoard.channels.slice(0,8).map(x=>({name:x.name,value:x.visits})),{fmtv:v=>v+' 次'}):empty('暂无渠道数据。')),
-      card('Bing 可冲刺词','排名 4-15、曝光 ≥100、CTR <2%；需结合搜索意图复核',
-       quickWins.length?table(['搜索词','排名','曝光','CTR'],quickWins.slice(0,8).map(k=>[k.name,k.position===null?'—':k.position.toFixed(1),k.impressions,k.ctr===null?'—':(100*k.ctr).toFixed(1)+'%'])):empty('当前没有满足条件的词。'),
-       h('div',{className:'sg-row',style:{marginTop:'10px'}},button('查看对应行动',()=>go('action'),false,false,'sm')))),
-     h('div',{className:'sg-sect'},'AI 引用来源'),
-     rankingCard(aB))
-    :card('暂无数据',null,h('div',{className:'sg-stack'},h('p',{className:'sg-muted'},'先采集或导入样本，看板会在这里长出来。'),h('div',{className:'sg-row'},button('去采集',()=>go('collect'),true)))));
+      card('AI 在说谁？','各分类互斥；点击分类查看原始回答',h('div',{className:'sg-donut-wrap'},h('div',{className:'sg-donut',style:{'--donut-fill':aB.geo.length?'conic-gradient('+entitySegments.map(([id,label,color],i,arr)=>{const prev=arr.slice(0,i).reduce((n,[k])=>n+detailIds(k).length,0)/aB.geo.length*100;return color+' '+prev+'% '+(prev+detailIds(id).length/aB.geo.length*100)+'%';}).join(',')+')':'#edf0f6'}},h('span',null,h('b',null,aB.geo.length),'有效样本')),table(['主体分类','回答数','占有效样本'],entitySegments.map(([id,label,color])=>{const ids=detailIds(id);return [h('span',{className:'sg-class-label'},h('i',{className:'sg-class-swatch',style:{background:color},'aria-hidden':'true'}),button(label,()=>openRecords(ids),false,!ids.length,'sm')),ids.length,aB.geo.length?fmt(ids.length/aB.geo.length):'—'];})))),
+      card('AI 有没有引用我们的官方来源？','包含官网或配置的官方来源（如官方仓库）；引用不等于推荐',h('p',{className:'sg-kpi-val'},aB.geo.length?fmt(aB.cited/aB.geo.length):'—'),h('p',null,aB.cited+' / '+aB.geo.length+' 条有效回答'),button('查看引用回答',()=>openRecords(aB.geo.filter(r=>(r.citations||[]).some(u=>isOfficialCitation(u,state.brand))).map(r=>r.id)),false,!aB.cited),hbars(aB.geo.reduce((acc,r)=>{for(const u of r.citations||[]){if(!isOfficialCitation(u,state.brand))continue;const name=canonicalUrl(u);let row=acc.find(x=>x.name===name);if(!row){row={name,value:0};acc.push(row);}if((r.citations||[]).findIndex(c=>canonicalUrl(c)===name)===(r.citations||[]).indexOf(u))row.value++;}return acc;},[]).sort((a,b)=>b.value-a.value).slice(0,8),{fmtv:v=>v+' 条回答'}))),
+     card('各 AI 平台表现','比较同一周内各平台的主体判定分布',platformMatrix(aB,state.brand)),
+     card('各题型表现','确认我方与引用官网均以该题型的有效样本为分母',table(['题型','有效样本','确认我方','引用官网'],[...new Set(aB.geo.map(r=>r.group||'未分类'))].map(g=>{const rows=aB.geo.filter(r=>(r.group||'未分类')===g);return [g,rows.length,fmt(rows.filter(r=>r.entityEffective==='ours').length/rows.length),fmt(rows.filter(r=>(r.citations||[]).some(u=>isOfficialCitation(u,state.brand))).length/rows.length)];}))),rankingCard(aB)):
+    h(React.Fragment,null,
+     card('本周搜索与流量','SEO 搜索指标与网站访问分别统计',table(['指标','本周数据'],[['搜索曝光',aTraffic.seo.length?aTraffic.seoAgg.totals.impressions:'—'],['搜索点击',aTraffic.seo.length?aTraffic.seoAgg.totals.clicks:'—'],['点击率 CTR',fmt(aTraffic.seoAgg.totals.ctr)],['官网访问',aTraffic.traffic.length?(aTraffic.seoBoard.site?.visits??aTraffic.seoBoard.totalChannelVisits):'—'],['已识别 AI 网站来源访问',aTraffic.traffic.length?aiTotal:'—']])),
+     h('div',{className:'sg-cols sg-g11'},
+      card('访问来源渠道','占比以可识别的渠道访问合计为分母',aTraffic.seoBoard.channels.length?hbars(aTraffic.seoBoard.channels.map(x=>({name:x.name,value:x.visits})),{fmtv:v=>v+' 次'}):empty('本周暂无来源明细。')),
+      card('来自 AI 网站的官网访问','网站统计记录的来源访问次数；不等于引用次数或独立访客数',aiRefs.length?table(['AI 平台','原始来源','访问次数','占渠道访问'],aiRefs.map(x=>[x.platform,x.name,x.visits,fmt(x.share)])):empty('本周没有已识别的 AI 网站来源访问记录。'),h('p',{className:'sg-note'},'仅按已确认的平台域名归类。其他来源保留在渠道列表；来源缺失的访问无法归因。数据以导入／同步记录为准。'))),
+     card('搜索词表现','默认展示全部关键词，按平均排名排序；筛选仅用于发现优化候选',h('div',{className:'sg-filters'},select(keywordFilter,v=>{setKeywordFilter(v);setKeywordLimit(30);},[['all','全部关键词'],['top','前 3 名'],['near','第 4–15 名'],['later','第 16 名及以后'],['low','曝光 ≥100、CTR <2%']],'搜索词筛选')),
+      kw.length?table(['搜索词','平均排名','曝光','点击','CTR'],kw.slice(0,keywordLimit).map(k=>[k.name,k.position===null?'—':k.position.toFixed(1),k.impressions,k.clicks,fmt(k.ctr)])):empty('本周没有符合条件的搜索词。'),h('p',{className:'sg-note'},'数据可能来自 Bing、GSC 或文件导入，来源见证据。4–15 只是可选排名区间；CTR 缺失不计入低点击率候选。共 '+kw.length+' 个词。'),kw.length>keywordLimit&&button('显示更多关键词',()=>setKeywordLimit(keywordLimit+30))),
+     card('累计快照与区间汇总','这些数据不能拆成每周值，按原始数据范围查看',h('p',{className:'sg-note'},'Bing 累计快照的日期是同步日，不是该周曝光；本表独立展示，不计入上面的周指标。'),table(['来源','搜索词 / 页面','记录日期 / 区间','曝光','点击','平均排名'],state.records.filter(r=>r.kind==='seo'&&isUnweeklyRecord(r,state)&&!r.invalidatedAt&&!state.imports.find(b=>b.id===r.batchId)?.revoked).slice().reverse().slice(0,100).map(r=>[searchProvider(r,state),r.keyword||r.page,r.periodFrom?r.periodFrom+' 至 '+r.periodTo:parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])?r.raw?.['日期范围']||r.raw?.['Date range']:shanghaiDay(r.date)+'（同步日）',r.impressions??'—',r.clicks??'—',r.position??'—']))),
+     card('搜索落地页表现','本周搜索侧页面数据',aTraffic.seoAgg.pages.length?table(['页面','曝光','点击','CTR','平均排名'],aTraffic.seoAgg.pages.map(p=>[p.name,p.impressions,p.clicks,fmt(p.ctr),p.position===null?'—':p.position.toFixed(1)])):empty('本周暂无搜索落地页数据。'))));
   }
   if(view==='collect'){
    const qs=question.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
@@ -1386,7 +1448,7 @@ function createApplication(React,logic){
      select(filter.platform||'',v=>updateFilter('platform',v),[['','全部平台'],...evPlatforms.map(x=>[x,x])],'平台'),
      select(filter.group||'',v=>updateFilter('group',v),[['','全部题型'],...evGroups.map(x=>[x,x])],'题型'),
      select(evKind,setEvKind,[['','全部数据类型'],['geo','AI 回答'],['seo','搜索数据'],['traffic','流量数据'],['research','研究资料']],'数据类型'),
-     select(evEntity,v=>{setEvEntity(v);},[['','主体：全部'],['ours','我方'],['rival','竞品 / 同名'],['mixed','混合'],['unjudged','待判定'],['pending','待核对']],'主体'),
+     select(evEntity,v=>{setEvEntity(v);},[['','主体：全部'],['ours','我方'],['rival','同名其他主体'],['mixed','混合'],['unjudged','待判定'],['pending','待核对']],'主体'),
      h('input',{'aria-label':'搜索问句或回答',placeholder:'搜索问句或回答…',value:evQuery,onChange:e=>setEvQuery(e.target.value)}),
      lastEvidence.length?h('span',{className:'sg-muted'},'已按证据来源筛选 '+new Set(lastEvidence).size+' 条 · ',h('a',{href:'#',onClick:e=>{e.preventDefault();setLastEvidence([]);}},'清除')):null,
      h('span',{className:'sg-sp'}),
@@ -1404,7 +1466,7 @@ function createApplication(React,logic){
     analysisTab==='overview'&&h('div',{className:'sg-stack'},
      card('各平台 · 谁在回答里出现','主体判定口径',platformMatrix(evA,state.brand)),
      h('div',{className:'sg-cols sg-g11'},
-      card('竞品 / 同名被提及','按命中样本数',(evA.competitors||[]).length?hbars(evA.competitors.slice(0,10).map(c=>({name:c.name,value:c.total}))):empty('暂无竞品命中。')),
+      card('同名其他主体被提及','按命中样本数',(evA.competitors||[]).length?hbars(evA.competitors.slice(0,10).map(c=>({name:c.name,value:c.total}))):empty('暂无竞品命中。')),
       card('引用网站','点击查看原始回答',evA.domains.length?table(['网站','引用回答','覆盖率'],evA.domains.slice(0,15).map(d=>[d.name,button(d.total+' 条',()=>showEvidence(d.ids),false,false,'sm'),(d.rate*100).toFixed(1)+'%'])):empty('暂无正式引用。')))),
     analysisTab==='trends'&&card('按条件趋势','按平台、来源、问题、模式、语言、地区和日期分别统计',(evA.trends||[]).length?table(['条件 / 日期','记录','提及品牌','主体我方'],evA.trends.map(t=>[t.name,t.total,t.mentioned,t.confirmed])):empty('暂无趋势数据。')));
   }
@@ -1524,20 +1586,21 @@ function createApplication(React,logic){
     header('设置','初始化引导、品牌、浏览器与数据源'),
     h('div',{className:'sg-stack'},
      setup,
-     h('div',{ref:setupBrandRef},panel('监测品牌',h('div',{className:'sg-grid'},field('品牌名称',input(brand.name,v=>setBrand(b=>({...b,name:v})),'品牌名称')),field('官方网站',input(brand.officialUrl||'',v=>setBrand(b=>({...b,officialUrl:v})),'官方网站')),field('所属公司',input(brand.organization||'',v=>setBrand(b=>({...b,organization:v})),'所属公司')),field('官方来源（每行一个 HTTPS 链接）',h('textarea',{'aria-label':'官方来源',value:(brand.officialSources||[]).join('\n'),onChange:e=>setBrand(b=>({...b,officialSources:e.target.value.split(/\n/).map(x=>x.trim()).filter(Boolean)}))})),field('同名实体（逗号分隔）',input((brand.entityRivals||[]).join(','),v=>setBrand(b=>({...b,entityRivals:v.split(/[,，]/).map(x=>x.trim()).filter(Boolean)})),'同名实体')),field('品牌别名（逗号分隔）',input(brand.aliases.join(','),v=>setBrand(b=>({...b,aliases:v.split(/[,，]/).map(x=>x.trim())})),'品牌别名')),field('产品竞品（逗号分隔）',input(brand.competitors.join(','),v=>setBrand(b=>({...b,competitors:v.split(/[,，]/).map(x=>x.trim()).filter(Boolean)})),'产品竞品'))),h('div',{className:'sg-toolbar'},button(brandFeedback?.status==='saving'?'正在保存…':'保存品牌设置',saveBrand,true,busy)),
-      h('p',{className:'sg-note'},'必填：品牌名称、官方网站、至少一个品牌别名。已有历史记录时不能改成其他品牌。'),
+     h('div',{ref:setupBrandRef},panel('监测品牌',h('div',{className:'sg-grid sg-brand-grid'},field('品牌名称',input(brand.name,v=>setBrand(b=>({...b,name:v})),'品牌名称')),field('官方网站',input(brand.officialUrl||'',v=>setBrand(b=>({...b,officialUrl:v})),'官方网站')),field('所属公司',input(brand.organization||'',v=>setBrand(b=>({...b,organization:v})),'所属公司')),field('官方来源（每行一个 HTTPS 链接）',h('textarea',{'aria-label':'官方来源',value:(brand.officialSources||[]).join('\n'),onChange:e=>setBrand(b=>({...b,officialSources:e.target.value.split(/\n/).map(x=>x.trim()).filter(Boolean)}))})),field('容易被误认的其他品牌／项目',brandList('entityRivals','同名实体','用于排除同名误认，例如其他 DSH 项目；不是替代产品名单。')),field('品牌名称与简称',brandList('aliases','品牌别名','例如 DSH Desktop、DSH；名称命中还需判断主体。')),field('用户可能选择的替代产品',brandList('competitors','产品竞品','用于比较产品竞争；同一条可补充别名。同名误认请另外加入上面的名单。'))),h('div',{className:'sg-toolbar'},button(brandFeedback?.status==='saving'?'正在保存…':'保存品牌设置',saveBrand,true,busy)),
+      h('p',{className:'sg-note'},'必填：品牌名称、官方网站、至少一个品牌别名。已有历史记录的品牌身份保持不变；监测其他品牌请使用顶部「新增品牌」。同名实体用于排除误认，竞品用于比较替代产品。'),
       brandFeedback&&h('div',{className:'sg-inline-feedback '+brandFeedback.status,role:brandFeedback.status==='error'?'alert':'status'},brandFeedback.text),
       brandFeedback?.status==='success'&&button('下一步：连接浏览器',()=>scrollSetup(setupBrowserRef),true))),
      browserGuide,
      credsPanel,
      panel('执行模型',h('p',{className:'sg-note'},'复用 DSH 模型配置，不需要单独填 Key。深入分析、推荐问句与报告追问都使用这里选的模型。'),executionSettings())));
   }
-  return h('div',{className:'sg-app'},h('style',null,SG_CSS+SG_CSS2),
+  return h('div',{className:'sg-app'+(view==='board'?' sg-board':'' )},h('style',null,SG_CSS+SG_CSS2),
    h('aside',{className:'sg-side'},
     h('div',{className:'sg-brand'},h('b',null,'SEO/GEO 工作台'),h('small',null,'DSH Desktop')),
     h('nav',{className:'sg-nav','aria-label':'工作台导航'},tabs.map(([id,t])=>h('button',{key:id,'aria-label':t,'aria-current':view===id?'page':null,onClick:()=>go(id)},icon(id),h('span',null,t),id==='action'&&badge?h('span',{className:'sg-badge'},badge):null))),
-    h('div',{className:'sg-side-foot'},h('span',null,'v0.15.5'),h('button',{type:'button',onClick:()=>{if(onClose)onClose();else runtime?.layout?.selectPanel(null);}},'收起工作台'))),
+    h('div',{className:'sg-side-foot'},h('span',null,'v0.16.2'),h('button',{type:'button',onClick:()=>{if(onClose)onClose();else runtime?.layout?.selectPanel(null);}},'收起工作台'))),
    h('main',{className:'sg-main',ref:mainRef},
+    h('div',{className:'sg-filters sg-brand-toolbar','aria-label':'品牌管理'},h('strong',null,'当前品牌'),select(state.activeBrandId||'legacy',chooseBrand,(state.brands||[{id:'legacy',name:state.brand.name||'未配置品牌'}]).map(b=>[b.id,b.name]),'当前品牌'),button('管理品牌',()=>go('settings'),false,busy||jobRunning),h('details',null,h('summary',null,'新增品牌'),h('div',{className:'sg-row'},input(newBrandName,setNewBrandName,'新品牌名称'),button('创建并配置',addBrand,true,busy||jobRunning||!newBrandName.trim())))),
     message&&h('div',{className:'sg-alert',role:'status'},message),
     busy&&h('p',{className:'sg-muted',role:'status'},'正在处理，请稍候…'),
     content,
