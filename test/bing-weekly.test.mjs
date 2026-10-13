@@ -22,3 +22,14 @@ test('daily query sync survives reload and resync, excludes snapshots and keeps 
  }finally{globalThis.fetch=old;await rm(root,{recursive:true,force:true});}
 });
 
+
+test('old backend snapshot classification recovers only proven daily endpoint records',async()=>{
+ const {initialState,normalizeSearchRecord}=await import('../analysis.js');const s=initialState();s.imports=[{id:'b',api:true,provider:'bing'}];s.records=[{kind:'seo',batchId:'b',provider:'bing',keyword:'desktop',dimension:'snapshot-query',date:'2026-10-09T00:00:00Z',clicks:2,impressions:20,position:null,raw:{Date:'/Date(1791504000000)/',trafficEndpoint:'GetQueryTrafficStats',trafficQuery:'desktop'}},{kind:'seo',batchId:'b',provider:'bing',keyword:'desktop',dimension:'snapshot-query',date:'2026-10-09',clicks:99,impressions:999,position:2,raw:{Date:'2026-10-09'}}];
+ assert.equal(normalizeSearchRecord(s.records[0]).dimension,'query-daily');assert.equal(normalizeSearchRecord(s.records[1]).dimension,'snapshot-query');const w=weeklyAnalyses(s,2,{},new Date('2026-10-13'))[0];assert.equal(w.a.seoAgg.keywords[0].clicks,2);assert.equal(latestKeywordSnapshots(s)[0].clicks,99);
+});
+
+test('automatic daily backfill shares manual sync and reports missing configuration',async()=>{
+ const {ensureBingDailyData}=await import('../syncers.js');const old=globalThis.fetch;let dailyCalls=0;const state={activeBrandId:'one',credentials:{bingApiKey:'fixture'},brand:{domain:'example.com'},records:[],imports:[]};const store={read:async()=>state,withBrand:(_,fn)=>fn(),addSyncBatch:async batch=>{state.records=batch.records;return {added:batch.records.length};}};
+ try{assert.equal(ensureBingDailyData(store,{...state,credentials:{}}).status,'unconfigured');globalThis.fetch=async value=>{const endpoint=new URL(value).pathname.split('/').at(-1);if(endpoint==='GetQueryTrafficStats')dailyCalls++;return {ok:true,status:200,text:async()=>JSON.stringify({d:endpoint==='GetQueryStats'?[{Query:'desktop',Date:'2026-10-09'}]:endpoint==='GetQueryTrafficStats'?[{Date:'2026-10-09',Clicks:2,Impressions:20}]:[]})};};assert.equal(ensureBingDailyData(store,state).status,'running');await syncBing(store);assert.equal(dailyCalls,1);assert.equal(ensureBingDailyData(store,state).status,'ready');
+ }finally{globalThis.fetch=old;}
+});

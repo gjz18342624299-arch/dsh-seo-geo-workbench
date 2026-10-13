@@ -1,7 +1,7 @@
 import {readFile,stat} from 'node:fs/promises';
 import {join,isAbsolute} from 'node:path';
 import {analyse,publicUrl} from './analysis.js';
-import {syncBing,syncCloudflare,syncGsc} from './syncers.js';
+import {ensureBingDailyData,syncBing,syncCloudflare,syncGsc} from './syncers.js';
 // 动作记录「粘贴链接自动抓标题」：公网 HTTPS 校验后抓取，8 秒超时、只读前 64KB，提取 <title>；任何失败都返回空串而不报错。
 async function fetchTitle(value){
  try{
@@ -32,7 +32,7 @@ export function createHandler(store,collector,assets,configureSession,judge,ques
    if(req.method!=='POST'||req.headers['x-dsh-monitor']!=='1')return send(403,{error:'请求缺少本机工作台标识'});
    let body='',size=0;for await(const chunk of req){size+=chunk.length;if(size>12*1024*1024)throw Error('请求过大');body+=chunk;}const a=JSON.parse(body||'{}');
    const op=pathname.split('/').at(-1);let value;
-   if(op==='state'){const s=await store.read();s.credStatus={bingApiKey:!!s.credentials?.bingApiKey,bingSiteUrl:!!s.credentials?.bingSiteUrl,cfToken:!!s.credentials?.cfToken,cfZoneId:!!s.credentials?.cfZoneId,gscJson:!!s.credentials?.gscJson,gscSiteUrl:!!s.credentials?.gscSiteUrl};delete s.credentials;delete s.brandSpaces;value=s;}
+   if(op==='state'){const s=await store.read();s.keywordDailySync=ensureBingDailyData(store,s);s.credStatus={bingApiKey:!!s.credentials?.bingApiKey,bingSiteUrl:!!s.credentials?.bingSiteUrl,cfToken:!!s.credentials?.cfToken,cfZoneId:!!s.credentials?.cfZoneId,gscJson:!!s.credentials?.gscJson,gscSiteUrl:!!s.credentials?.gscSiteUrl};delete s.credentials;delete s.brandSpaces;value=s;}
    else if(op==='workspace-directory'){value={exists:typeof a.path==='string'&&isAbsolute(a.path)&&await stat(a.path).then(x=>x.isDirectory(),()=>false)};}
    else if(op==='question-start'){if(!questions)throw Error('当前环境不支持后台生成');value=await questions.start(a);}
    else if(op==='configure-session'){if(!configureSession)throw Error('请在 DSH 内配置执行会话');value=await configureSession(a);}

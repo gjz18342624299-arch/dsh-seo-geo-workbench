@@ -5,7 +5,7 @@ import {mkdir,readFile,writeFile,rename,stat,readdir,rm} from 'node:fs/promises'
 import {join,basename,extname,resolve} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {seoCatalog,seoScope,createSeoSnapshot,seoHtml,seoCsv,seoAnalysisPrompt,sourceOf,siteOf} from './seo-reports.js';
-import {initialState,isOfficialCitation,publicUrl,mappingFor,parseCSV,normalizeRows,recordKey,analyse,isOursSignal,autoJudgeEntity,isRivalCitation,canonicalUrl,githubRepo,OFFICIAL_REPO_ORG,DEFAULT_ENTITY_RIVALS,activityFor} from './analysis.js';
+import {initialState,isOfficialCitation,publicUrl,normalizeSearchRecord,mappingFor,parseCSV,normalizeRows,recordKey,analyse,isOursSignal,autoJudgeEntity,isRivalCitation,canonicalUrl,githubRepo,OFFICIAL_REPO_ORG,DEFAULT_ENTITY_RIVALS,activityFor} from './analysis.js';
 // 深入分析选择（报告内嵌与 deep-status 共用同一套规则，输出规范 §5）：
 // 只取"综合版"（kind='geo' 优先，老数据无 kind 时回退六章节格式），报告对话/SEO 分析不进；
 // 范围匹配：分析覆盖记录至少一半落在报告范围内且至少 1 条；
@@ -132,6 +132,7 @@ export class Store {
   }
   constructor(root){this.root=resolve(root);this.file=join(this.root,'work','monitor-v3','state.json');this.tail=Promise.resolve();this.brandContext=new AsyncLocalStorage();}
   async readRaw(){try{const s=JSON.parse(await readFile(this.file,'utf8'));s.version=Math.max(Number(s.version)||0,4);s.brand||=initialState().brand;s.brand.officialUrl||=s.brand.domain?'https://'+s.brand.domain:'';s.batches||=[];s.credentials||={};s.syncs||=[];s.schedules||=[];s.actionStates||={};s.activities||=[];
+    s.records=(s.records||[]).map(normalizeSearchRecord);
     const bingIds=new Set((s.imports||[]).filter(b=>b.api&&(b.provider||sourceOf(b.sourceLabel))==='bing').map(b=>b.id));
     for(const r of s.records||[])if(bingIds.has(r.batchId)&&r.keyword!=='（整站）'&&r.dimension!=='query-daily'){
       r.syncedAt||=(s.imports.find(b=>b.id===r.batchId)?.createdAt||r.date||'');

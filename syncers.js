@@ -27,7 +27,23 @@ async function bingCall(endpoint,siteUrl,apiKey,params={}){
   if(!Array.isArray(list))throw Error(`Bing ${endpoint} 返回结构无法识别`);
   return list;
 }
+const bingDailyJobs=new WeakMap();
+function jobMap(store){if(!bingDailyJobs.has(store))bingDailyJobs.set(store,new Map());return bingDailyJobs.get(store);}
 export async function syncBing(store){
+ const state=await store.read(),brand=state.activeBrandId||'legacy',jobs=jobMap(store),existing=jobs.get(brand);
+ if(existing?.status==='running')return existing.promise;
+ const job={status:'running',startedAt:Date.now(),error:''};jobs.set(brand,job);
+ job.promise=Promise.resolve().then(()=>store.withBrand?store.withBrand(brand,()=>fetchBingData(store)):fetchBingData(store)).then(result=>{job.status='completed';job.finishedAt=Date.now();return result;},error=>{job.status='failed';job.finishedAt=Date.now();job.error=error.message;throw error;});return job.promise;
+}
+export function ensureBingDailyData(store,state){
+ const rows=(state.records||[]).filter(r=>r.kind==='seo'&&r.raw?.trafficEndpoint==='GetQueryTrafficStats'&&!r.invalidatedAt&&!(state.imports||[]).find(b=>b.id===r.batchId)?.revoked);
+ if(rows.length)return {status:'ready',rows:rows.length};
+ if(!state.credentials?.bingApiKey)return {status:'unconfigured',rows:0};
+ const brand=state.activeBrandId||'legacy',job=jobMap(store).get(brand);
+ if(!job){const run=()=>syncBing(store).catch(()=>{});if(store.withBrand)store.withBrand(brand,run);else run();return {status:'running',rows:0};}
+ return {status:job.status==='completed'?'empty':job.status,rows:0,error:job.error||''};
+}
+async function fetchBingData(store){
   const s=await store.read();
   const key=s.credentials?.bingApiKey;
   if(!key)throw Error('请先在「品牌与数据源」保存 Bing API Key');

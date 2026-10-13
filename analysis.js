@@ -5,7 +5,12 @@ export function classifyAiReferrer(value){
 }
 export function shanghaiDay(value){if(!value)return '';const d=new Date(value);return Number.isFinite(d.getTime())?new Date(d.getTime()+8*3600000).toISOString().slice(0,10):'';}
 export function weekStart(value){const day=shanghaiDay(value);if(!day)return '';const d=new Date(day+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));return d.toISOString().slice(0,10);}
+export function normalizeSearchRecord(r){
+ if(r.kind==='seo'&&r.keyword&&r.raw?.trafficEndpoint==='GetQueryTrafficStats'&&r.raw?.trafficQuery===r.keyword&&!r.page&&shanghaiDay(r.date))return {...r,dimension:'query-daily',date:r.date,position:null};
+ return r;
+}
 export function weeklyAnalyses(state,count=8,filters={},now=new Date()){
+ state={...state,records:state.records.map(normalizeSearchRecord)};
  const current=weekStart(now),first=new Date(current+'T00:00:00Z');first.setUTCDate(first.getUTCDate()-7*(count-1));
  return Array.from({length:count},(_,i)=>{const d=new Date(first);d.setUTCDate(d.getUTCDate()+7*i);const from=d.toISOString().slice(0,10);d.setUTCDate(d.getUTCDate()+6);const to=d.toISOString().slice(0,10);
  const records=state.records.filter(r=>{if(isUnweeklyRecord(r,state)||!r.date)return false;const day=shanghaiDay(r.date);return day>=from&&day<=to;});
@@ -17,7 +22,7 @@ export function weeklyAnalyses(state,count=8,filters={},now=new Date()){
  return {id:from,date:from,from,to,current:from===current,name:from+' 至 '+to,a,total:a.geo.length,ours:a.entity.ours,cited:a.cited,rival:a.entity.rival};});
 }
 export function searchProvider(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);const source=r.provider||b?.provider||b?.sourceLabel||r.location||'';return /bing/i.test(source)?'Bing':/google search console|gsc/i.test(source)?'GSC':/cloudflare/i.test(source)?'Cloudflare':'文件导入';}
-export function isUnweeklyRecord(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);return !!(r.dateRange||r.periodFrom||r.periodTo||String(r.dimension||'').startsWith('snapshot')||r.metrics?.periodType==='cumulative'||parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])||(r.kind==='seo'&&searchProvider(r,state)==='Bing'&&b?.api&&r.keyword!=='（整站）'&&r.dimension!=='query-daily'));}
+export function isUnweeklyRecord(r,state){r=normalizeSearchRecord(r);const b=(state.imports||[]).find(b=>b.id===r.batchId);return !!(r.dateRange||r.periodFrom||r.periodTo||String(r.dimension||'').startsWith('snapshot')||r.metrics?.periodType==='cumulative'||parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])||(r.kind==='seo'&&searchProvider(r,state)==='Bing'&&b?.api&&r.keyword!=='（整站）'&&r.dimension!=='query-daily'));}
 export function latestKeywordSnapshots(state){
  const latest=new Map(),rows=[];
  const normalizeSite=value=>{let site=String(value||'').trim().toLowerCase();if(!site)return '';try{return new URL(site.includes('://')?site:'https://'+site).hostname.replace(/^www\./,'');}catch{return site;}};
