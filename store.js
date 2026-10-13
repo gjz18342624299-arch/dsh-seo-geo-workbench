@@ -133,7 +133,7 @@ export class Store {
   constructor(root){this.root=resolve(root);this.file=join(this.root,'work','monitor-v3','state.json');this.tail=Promise.resolve();this.brandContext=new AsyncLocalStorage();}
   async readRaw(){try{const s=JSON.parse(await readFile(this.file,'utf8'));s.version=Math.max(Number(s.version)||0,4);s.brand||=initialState().brand;s.brand.officialUrl||=s.brand.domain?'https://'+s.brand.domain:'';s.batches||=[];s.credentials||={};s.syncs||=[];s.schedules||=[];s.actionStates||={};s.activities||=[];
     const bingIds=new Set((s.imports||[]).filter(b=>b.api&&(b.provider||sourceOf(b.sourceLabel))==='bing').map(b=>b.id));
-    for(const r of s.records||[])if(bingIds.has(r.batchId)&&r.keyword!=='（整站）'){
+    for(const r of s.records||[])if(bingIds.has(r.batchId)&&r.keyword!=='（整站）'&&r.dimension!=='query-daily'){
       r.syncedAt||=(s.imports.find(b=>b.id===r.batchId)?.createdAt||r.date||'');
       if(r.raw?.Date!==undefined||r.raw?.date!==undefined)r.date=isoDate(r.raw.Date??r.raw.date);r.dimension=r.page&&r.keyword?'snapshot-query-page':r.page?'snapshot-page':'snapshot-query';
     }
@@ -238,7 +238,7 @@ export class Store {
     return this.mutate(s=>{
       // API 同步是对同一时间窗的重拉：同一（类型, 日, 渠道, 关键词, 页面）只保留最新一次同步的行。
       // 此前按整条内容去重，同一天内指标增长会让重复行不断堆积（访问量被重复计数）。
-      const dayKey=r=>[kind,String(r.date||'').slice(0,10),String(r.channel||''),String(r.keyword||''),String(r.page||'')].join('');
+      const dayKey=r=>[kind,String(r.date||'').slice(0,10),r.dimension||(provider==='bing'&&r.keyword!=='（整站）'?(r.page?(r.keyword?'snapshot-query-page':'snapshot-page'):'snapshot-query'):''),String(r.channel||''),String(r.keyword||''),String(r.page||'')].join('');
       const incoming=new Set(records.map(dayKey));
       const apiBatches=new Set(s.imports.filter(b=>b.api&&!b.revoked&&b.kind===kind&&(b.provider||sourceOf(b.sourceLabel))===provider&&siteOf(b.site)===siteOf(site)).map(b=>b.id));
       const before=s.records.length;

@@ -51,6 +51,21 @@ export async function syncBing(store){
     const page=String(p.Query??p.query??p.Page??p.Url??p.url??'').trim();if(!page)continue;
     records.push({kind:'seo',date:isoDate(p.Date??p.date),syncedAt:today,dimension:'snapshot-page',keyword:'',page,clicks:num(p.Clicks),impressions:num(p.Impressions),position:num(p.AvgImpressionPosition??p.AvgClickPosition),raw:p});
   }
+  // Per-query daily traffic is a distinct dimension; snapshot totals are never substituted.
+  const dailyQueries=[...new Set(records.filter(r=>r.dimension==='snapshot-query').map(r=>r.keyword))];
+  let queryDailyEmpty=0,queryDailyFailed=0,queryDailyRejected=0;
+  for(let i=0;i<dailyQueries.length;i+=3){
+    const results=await Promise.all(dailyQueries.slice(i,i+3).map(query=>bingCall('GetQueryTrafficStats',siteUrl,key,{query}).then(rows=>({query,rows})).catch(e=>({query,error:e.message}))));
+    for(const result of results){
+      if(result.error){queryDailyFailed++;errors.push(result.error);continue;}
+      if(!result.rows.length)queryDailyEmpty++;
+      for(const d of result.rows){
+        const date=isoDate(d.Date??d.date),clicks=num(d.Clicks),impressions=num(d.Impressions);
+        if(!date||clicks===null||impressions===null){queryDailyRejected++;continue;}
+        records.push({kind:'seo',date,syncedAt:today,dimension:'query-daily',keyword:result.query,page:'',clicks,impressions,position:null,raw:{...d,trafficEndpoint:'GetQueryTrafficStats',trafficQuery:result.query}});
+      }
+    }
+  }
   // 页面列表是热门页集合；关联覆盖仅限本次返回的页面，不声称全站完整。
   const relationPages=[...new Set(records.filter(r=>r.dimension==='snapshot-page').map(r=>r.page))];
   let relationEmpty=0,relationFailed=0,relationRejected=0;
@@ -72,7 +87,7 @@ export async function syncBing(store){
     records.push({kind:'seo',date,keyword:'（整站）',page:'',clicks:num(d.Clicks),impressions:num(d.Impressions),position:null,raw:d});
   }
   if(!records.length)throw Error('Bing 返回 0 条数据。站点刚验证时需要几天积累，请稍后再同步。');
-  return store.addSyncBatch({kind:'seo',sourceLabel:'Bing Webmaster API 自动同步',site:siteUrl,records,note:[errors.length?`部分接口失败：${errors.join('；')}`:'',`关键词收到 ${Array.isArray(queries)?queries.length:0} 行 / 接收 ${records.filter(r=>r.dimension==='snapshot-query').length} 行；页面收到 ${Array.isArray(pages)?pages.length:0} 行 / 接收 ${records.filter(r=>r.dimension==='snapshot-page').length} 行；关联查询 ${relationPages.length} 个页面，接收 ${records.filter(r=>r.dimension==='snapshot-query-page').length} 条词-页面明细，空结果 ${relationEmpty} 页，失败 ${relationFailed} 页，丢弃 ${relationRejected} 行；仅覆盖本次热门页列表，空结果不等于无对应关系；保留原始统计日期，明细统计区间未知，不作单日或三个月累计值`].filter(Boolean).join('；')});
+  return store.addSyncBatch({kind:'seo',sourceLabel:'Bing Webmaster API 自动同步',site:siteUrl,records,note:[errors.length?`部分接口失败：${errors.join('；')}`:'',`每日关键词查询 ${dailyQueries.length} 个词，接收 ${records.filter(r=>r.dimension==='query-daily').length} 行，空结果 ${queryDailyEmpty} 词，失败 ${queryDailyFailed} 词，丢弃 ${queryDailyRejected} 行；仅覆盖接口返回的热门词；关键词快照收到 ${Array.isArray(queries)?queries.length:0} 行 / 接收 ${records.filter(r=>r.dimension==='snapshot-query').length} 行；页面收到 ${Array.isArray(pages)?pages.length:0} 行 / 接收 ${records.filter(r=>r.dimension==='snapshot-page').length} 行；关联查询 ${relationPages.length} 个页面，接收 ${records.filter(r=>r.dimension==='snapshot-query-page').length} 条词-页面明细，空结果 ${relationEmpty} 页，失败 ${relationFailed} 页，丢弃 ${relationRejected} 行；仅覆盖本次热门页列表，空结果不等于无对应关系；保留原始统计日期；快照明细统计区间未知，不作单日或三个月累计值；每日关键词仅按接口返回日期统计，缺失日期不补零`].filter(Boolean).join('；')});
 }
 
 async function cfJson(path,token,init={}){

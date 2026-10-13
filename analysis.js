@@ -17,7 +17,7 @@ export function weeklyAnalyses(state,count=8,filters={},now=new Date()){
  return {id:from,date:from,from,to,current:from===current,name:from+' 至 '+to,a,total:a.geo.length,ours:a.entity.ours,cited:a.cited,rival:a.entity.rival};});
 }
 export function searchProvider(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);const source=r.provider||b?.provider||b?.sourceLabel||r.location||'';return /bing/i.test(source)?'Bing':/google search console|gsc/i.test(source)?'GSC':/cloudflare/i.test(source)?'Cloudflare':'文件导入';}
-export function isUnweeklyRecord(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);return !!(r.dateRange||r.periodFrom||r.periodTo||String(r.dimension||'').startsWith('snapshot')||r.metrics?.periodType==='cumulative'||parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])||(r.kind==='seo'&&searchProvider(r,state)==='Bing'&&b?.api&&r.keyword!=='（整站）'));}
+export function isUnweeklyRecord(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);return !!(r.dateRange||r.periodFrom||r.periodTo||String(r.dimension||'').startsWith('snapshot')||r.metrics?.periodType==='cumulative'||parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])||(r.kind==='seo'&&searchProvider(r,state)==='Bing'&&b?.api&&r.keyword!=='（整站）'&&r.dimension!=='query-daily'));}
 export function latestKeywordSnapshots(state){
  const latest=new Map(),rows=[];
  const normalizeSite=value=>{let site=String(value||'').trim().toLowerCase();if(!site)return '';try{return new URL(site.includes('://')?site:'https://'+site).hostname.replace(/^www\./,'');}catch{return site;}};
@@ -91,7 +91,7 @@ export function normalizeRows(rows,mapping,kind,batchId,sheet='') {
     return record;
   });
 }
-export function recordKey(r){return JSON.stringify([r.kind,r.source,r.platform,r.question,r.answer,r.date,r.mode,r.locale,r.region,r.keyword,r.page,r.channel,r.clicks,r.impressions,r.visits,r.downloads,r.position,r.citations,r.searchedSources,r.periodFrom,r.periodTo]);}
+export function recordKey(r){return JSON.stringify([r.kind,r.source,r.platform,r.question,r.answer,r.date,r.mode,r.locale,r.region,r.dimension,r.keyword,r.page,r.channel,r.clicks,r.impressions,r.visits,r.downloads,r.position,r.citations,r.searchedSources,r.periodFrom,r.periodTo]);}
 export function initialState(legacy={}) {return {version:4,revision:0,platforms:structuredClone(PRESETS),batches:legacy.batches||[],tasks:legacy.tasks||[],samples:legacy.samples||[],imports:[],records:[],reports:[],schedules:[],actionStates:{},activities:[],brand:legacy.brand||{name:'',aliases:[],officialUrl:'',domain:'',competitors:[],entityRivals:[],organization:'',officialSources:[]}};}
 // 动作记录归因：某条有效 GEO 记录的正式引用（canonicalUrl 解包后）命中动作记录的 url 时算一次引用。
 // 匹配按「主机名 + 路径前缀」，动作 url 的路径必须非空（只有域名的动作不匹配任何引用，避免所有官网引用都归到某次改动）。
