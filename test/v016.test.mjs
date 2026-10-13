@@ -29,3 +29,9 @@ test('latest keywords keep snapshot dates, discard revoked and page associations
  {id:'bad',batchId:'revoked',kind:'seo',keyword:'revoked',date:'2026-10-09',dimension:'snapshot-query'}];
  const keys=latestKeywordSnapshots(s);assert.equal(keys.length,1);assert.equal(keys[0].date,'2026-10-09');assert.equal(keys[0].impressions,120);assert.equal(keys[0].ctr,0.025);assert.equal(weeklyAnalyses(s,2,{},new Date('2026-10-13')).reduce((n,w)=>n+w.a.seo.length,0),0);
 });
+
+test('legacy copies reconcile only with an identical snapshot from one normalized site',async()=>{
+ const {latestKeywordSnapshots}=await import('../analysis.js');const base={kind:'seo',provider:'bing',keyword:'desktop',dimension:'snapshot-query',date:'2026-09-25',impressions:105,clicks:36,position:1};const s=exampleState();s.imports=[];s.records=[{...base},{...base,site:'https://WWW.example.com/'},{...base,site:'example.com',date:'2026-10-09',clicks:40},{...base,site:'other.com',keyword:'other'},{...base,keyword:'unknown',clicks:2}];
+ let rows=latestKeywordSnapshots(s);assert.equal(rows.length,3);assert.equal(rows.find(r=>r.name==='desktop').date,'2026-10-09');assert.equal(rows.find(r=>r.name==='unknown').site,'未知');assert.equal(s.records[0].site,undefined);
+ s.records.push({...base,site:'other.com'});rows=latestKeywordSnapshots(s);assert.equal(rows.filter(r=>r.name==='desktop').length,3);
+});

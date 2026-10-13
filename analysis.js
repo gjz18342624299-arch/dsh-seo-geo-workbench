@@ -19,15 +19,24 @@ export function weeklyAnalyses(state,count=8,filters={},now=new Date()){
 export function searchProvider(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);const source=r.provider||b?.provider||b?.sourceLabel||r.location||'';return /bing/i.test(source)?'Bing':/google search console|gsc/i.test(source)?'GSC':/cloudflare/i.test(source)?'Cloudflare':'文件导入';}
 export function isUnweeklyRecord(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);return !!(r.dateRange||r.periodFrom||r.periodTo||String(r.dimension||'').startsWith('snapshot')||r.metrics?.periodType==='cumulative'||parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])||(r.kind==='seo'&&searchProvider(r,state)==='Bing'&&b?.api&&r.keyword!=='（整站）'));}
 export function latestKeywordSnapshots(state){
- const latest=new Map();
+ const latest=new Map(),rows=[];
+ const normalizeSite=value=>{let site=String(value||'').trim().toLowerCase();if(!site)return '';try{return new URL(site.includes('://')?site:'https://'+site).hostname.replace(/^www\./,'');}catch{return site;}};
  for(const r of state.records||[]){
   const batch=(state.imports||[]).find(b=>b.id===r.batchId);
   if(r.kind!=='seo'||!r.keyword||r.keyword==='（整站）'||r.page||r.invalidatedAt||batch?.revoked||!isUnweeklyRecord(r,state))continue;
-  const source=searchProvider(r,state),key=JSON.stringify([source,r.site||'',r.keyword]);
-  const stamp=String(r.date||'')+'|'+String(r.syncedAt||batch?.createdAt||'');
-  if(!latest.has(key)||stamp>=latest.get(key).stamp)latest.set(key,{r,source,stamp});
+  const source=searchProvider(r,state),site=normalizeSite(r.site||batch?.site);
+  const signature=JSON.stringify([source,r.keyword,shanghaiDay(r.date),r.impressions??null,r.clicks??null,r.position??null]);
+  rows.push({r,batch,source,site,signature});
  }
- return [...latest.values()].map(({r,source})=>({name:r.keyword,source,date:shanghaiDay(r.date)||'未知',impressions:r.impressions??null,clicks:r.clicks??null,position:Number.isFinite(r.position)?r.position:null,ctr:r.impressions>0&&Number.isFinite(r.clicks)?r.clicks/r.impressions:null}));
+ // Only reconcile an unattributed legacy copy when its exact snapshot identifies one site.
+ const sitesBySnapshot=new Map();for(const row of rows)if(row.site){if(!sitesBySnapshot.has(row.signature))sitesBySnapshot.set(row.signature,new Set());sitesBySnapshot.get(row.signature).add(row.site);}
+ for(const row of rows){
+  const {r,batch,source}=row,matches=sitesBySnapshot.get(row.signature);
+  const site=row.site|| (matches?.size===1?[...matches][0]:'');
+  const key=JSON.stringify([source,site,r.keyword]),stamp=String(r.date||'')+'|'+String(r.syncedAt||batch?.createdAt||'');
+  if(!latest.has(key)||stamp>=latest.get(key).stamp)latest.set(key,{r,source,site,stamp});
+ }
+ return [...latest.values()].map(({r,source,site})=>({name:r.keyword,source,site:site||'未知',date:shanghaiDay(r.date)||'未知',impressions:r.impressions??null,clicks:r.clicks??null,position:Number.isFinite(r.position)?r.position:null,ctr:r.impressions>0&&Number.isFinite(r.clicks)?r.clicks/r.impressions:null}));
 }
 // Shared, deterministic analysis. Model judgements stay separate from measured counts.
 export const PRESETS = [
