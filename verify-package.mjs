@@ -1,4 +1,4 @@
-import {readFile,mkdir,stat} from 'node:fs/promises';
+import {readFile,mkdir,stat,access} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {resolve,join,dirname} from 'node:path';
@@ -6,7 +6,10 @@ import assert from 'node:assert/strict';
 const root=fileURLToPath(new URL('.',import.meta.url));
 const version=JSON.parse(await readFile(join(root,'package.json'),'utf8')).version;
 const output=resolve(root,'../../outputs/market-v'+version);await mkdir(output,{recursive:true});
-const npmCli=process.env.npm_execpath||join(dirname(process.execPath),'node_modules/npm/bin/npm-cli.js');
+const npmCandidates=[process.env.npm_execpath,join(dirname(process.execPath),'node_modules/npm/bin/npm-cli.js'),resolve(dirname(process.execPath),'../lib/node_modules/npm/bin/npm-cli.js')].filter(Boolean);
+let npmCli;
+for(const candidate of npmCandidates){try{await access(candidate);npmCli=candidate;break;}catch{}}
+if(!npmCli)throw Error('Cannot locate npm CLI; run npm run pack:check or install npm alongside Node.js');
 const result=spawnSync(process.execPath,[npmCli,'pack','--ignore-scripts','--json','--pack-destination',output],{cwd:root,encoding:'utf8'});
 if(result.status!==0)throw Error(result.stderr||result.stdout);
 const [packed]=JSON.parse(result.stdout);const files=new Set(packed.files.map(f=>f.path));

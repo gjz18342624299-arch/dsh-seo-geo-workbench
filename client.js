@@ -1598,7 +1598,7 @@ function createApplication(React,logic){
    h('aside',{className:'sg-side'},
     h('div',{className:'sg-brand'},h('b',null,'SEO/GEO 工作台'),h('small',null,'DSH Desktop')),
     h('nav',{className:'sg-nav','aria-label':'工作台导航'},tabs.map(([id,t])=>h('button',{key:id,'aria-label':t,'aria-current':view===id?'page':null,onClick:()=>go(id)},icon(id),h('span',null,t),id==='action'&&badge?h('span',{className:'sg-badge'},badge):null))),
-    h('div',{className:'sg-side-foot'},h('span',null,'v0.16.2'),h('button',{type:'button',onClick:()=>{if(onClose)onClose();else runtime?.layout?.selectPanel(null);}},'收起工作台'))),
+    h('div',{className:'sg-side-foot'},h('span',null,'v0.16.3'),h('button',{type:'button',onClick:()=>{if(onClose)onClose();else runtime?.layout?.selectPanel(null);}},'收起工作台'))),
    h('main',{className:'sg-main',ref:mainRef},
     h('div',{className:'sg-filters sg-brand-toolbar','aria-label':'品牌管理'},h('strong',null,'当前品牌'),select(state.activeBrandId||'legacy',chooseBrand,(state.brands||[{id:'legacy',name:state.brand.name||'未配置品牌'}]).map(b=>[b.id,b.name]),'当前品牌'),button('管理品牌',()=>go('settings'),false,busy||jobRunning),h('details',null,h('summary',null,'新增品牌'),h('div',{className:'sg-row'},input(newBrandName,setNewBrandName,'新品牌名称'),button('创建并配置',addBrand,true,busy||jobRunning||!newBrandName.trim())))),
     message&&h('div',{className:'sg-alert',role:'status'},message),

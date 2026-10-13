@@ -16,7 +16,7 @@ jobs:
       - name: Install runtime dependencies
         run: npm install --ignore-scripts
       - name: Validate market package
-        run: node verify-package.mjs
+        run: npm run pack:check
       - name: Publish fixed-name download
         env:
           GH_TOKEN: ${{ github.token }}

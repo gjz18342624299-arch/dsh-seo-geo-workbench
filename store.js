@@ -1,3 +1,4 @@
+import {isoDate} from './syncers.js';
 import {AsyncLocalStorage} from 'node:async_hooks';
 import {fileURLToPath} from 'node:url';
 import {mkdir,readFile,writeFile,rename,stat,readdir,rm} from 'node:fs/promises';
@@ -130,7 +131,13 @@ export class Store {
    let browser;try{browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage();await page.route('**/*',route=>route.abort());await page.setContent(r.html,{waitUntil:'load'});const name=stem+'.pdf',path=join(dir,name);const data=await page.pdf({path,format:'A4',printBackground:true,margin:{top:'14mm',bottom:'14mm',left:'10mm',right:'10mm'}});return {name,base64:data.toString('base64'),path};}catch(e){throw Error('PDF 导出失败，请确认已安装 Edge；仍可导出 HTML。'+e.message);}finally{await browser?.close();}
   }
   constructor(root){this.root=resolve(root);this.file=join(this.root,'work','monitor-v3','state.json');this.tail=Promise.resolve();this.brandContext=new AsyncLocalStorage();}
-  async readRaw(){try{const s=JSON.parse(await readFile(this.file,'utf8'));s.version=Math.max(Number(s.version)||0,4);s.brand||=initialState().brand;s.brand.officialUrl||=s.brand.domain?'https://'+s.brand.domain:'';s.batches||=[];s.credentials||={};s.syncs||=[];s.schedules||=[];s.actionStates||={};s.activities||=[];return s;}catch(e){if(e.code!=='ENOENT')throw e;return initialState();}}
+  async readRaw(){try{const s=JSON.parse(await readFile(this.file,'utf8'));s.version=Math.max(Number(s.version)||0,4);s.brand||=initialState().brand;s.brand.officialUrl||=s.brand.domain?'https://'+s.brand.domain:'';s.batches||=[];s.credentials||={};s.syncs||=[];s.schedules||=[];s.actionStates||={};s.activities||=[];
+    const bingIds=new Set((s.imports||[]).filter(b=>b.api&&(b.provider||sourceOf(b.sourceLabel))==='bing').map(b=>b.id));
+    for(const r of s.records||[])if(bingIds.has(r.batchId)&&r.keyword!=='（整站）'){
+      r.syncedAt||=(s.imports.find(b=>b.id===r.batchId)?.createdAt||r.date||'');
+      if(r.raw?.Date!==undefined||r.raw?.date!==undefined)r.date=isoDate(r.raw.Date??r.raw.date);r.dimension=r.page&&r.keyword?'snapshot-query-page':r.page?'snapshot-page':'snapshot-query';
+    }
+    return s;}catch(e){if(e.code!=='ENOENT')throw e;return initialState();}}
   withBrand(id,fn){return this.brandContext.run(id||null,fn);}
   ensureBrands(s){
     s.activeBrandId||='legacy';s.brandSpaces||={};
@@ -243,7 +250,7 @@ export class Store {
       const seen=new Set(s.records.filter(r=>(r.source!=='imported'||active.has(r.batchId))&&r.provider===provider&&siteOf(r.site)===siteOf(site)).map(recordKey));
       const id=randomUUID(),now=new Date().toISOString(),accepted=[];
       records.forEach((r,i)=>{
-        const rec={id:`${id}-${i+1}`,batchId:id,location:sourceLabel,kind,source:'imported',date:r.date||now,platform:'',question:'',answer:'',group:'未分类',mode:'unknown',locale:'unknown',region:'unknown',sourceUrl:'',citations:[],raw:r.raw||{},keyword:String(r.keyword||''),page:String(r.page||''),channel:String(r.channel||''),clicks:r.clicks??null,impressions:r.impressions??null,visits:r.visits??null,downloads:r.downloads??null,position:r.position??null,eligible:false,issues:[]};
+        const rec={id:`${id}-${i+1}`,batchId:id,location:sourceLabel,kind,source:'imported',date:r.dimension?.startsWith('snapshot')?(r.date||''):(r.date||now),syncedAt:r.syncedAt||now,platform:'',question:'',answer:'',group:'未分类',mode:'unknown',locale:'unknown',region:'unknown',sourceUrl:'',citations:[],raw:r.raw||{},keyword:String(r.keyword||''),page:String(r.page||''),channel:String(r.channel||''),clicks:r.clicks??null,impressions:r.impressions??null,visits:r.visits??null,downloads:r.downloads??null,position:r.position??null,eligible:false,issues:[]};
         rec.provider=provider;rec.site=siteOf(site);if(r.dimension)rec.dimension=r.dimension;
         const key=recordKey(rec);if(seen.has(key))return;seen.add(key);accepted.push(rec);
       });

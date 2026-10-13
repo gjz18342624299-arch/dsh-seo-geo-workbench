@@ -80,3 +80,19 @@ test('sync keeps same-key Bing and GSC records separate; report exports remain f
 
 test('data gaps are limitations, cumulative keywords become bounded optimization experiments',()=>{const r=createSeoSnapshot(fixture(),options);r.snapshots.push({id:'candidate',source:'bing',dimension:'snapshot-query',keyword:'desktop app',impressions:500,clicks:20,position:5,date:'2026-09-02'});const a=seoInsights(r);assert.ok(a.actions.some(x=>x.task.includes('desktop app')&&x.implementation));assert.ok(a.actions.every(x=>!x.task.includes('确认')&&!x.task.includes('补充')));assert.ok(seoAnalysisPrompt(r).includes('cumulativeDiscovery'));});
 
+
+test('Bing historical dates recover and repeated sync replaces each dated snapshot',async()=>{
+ const root=await mkdtemp(fileURLToPath(new URL('../../qa-bing-fix-',import.meta.url)));const store=new Store(root);
+ try{
+ await store.addSyncBatch({kind:'seo',sourceLabel:'Bing',site:'example.com',records:[{date:'2026-10-12',keyword:'same',raw:{Date:'2026-09-25T00:00:00Z'},clicks:3},{date:'2026-10-12',keyword:'same',raw:{Date:'2026-10-02T00:00:00Z'},clicks:4}]});
+ const restored=await store.read();assert.deepEqual(restored.records.map(r=>r.date.slice(0,10)),['2026-09-25','2026-10-02']);
+ const rows=restored.records.map(r=>({...r,clicks:9}));await store.addSyncBatch({kind:'seo',sourceLabel:'Bing',site:'example.com',records:rows});await store.addSyncBatch({kind:'seo',sourceLabel:'Bing',site:'example.com',records:rows});
+ assert.equal((await store.read()).records.length,2);
+ const scope=seoScope(await store.read(),{site:'example.com',sources:['bing'],from:'2026-09-01',to:'2026-10-12',coverage:'actual'});assert.equal(scope.count,0);assert.equal(scope.snapshots.length,2);assert.ok(scope.snapshots[0].basis.includes('非单日')||scope.snapshots[0].basis.includes('不当作单日'));
+ }finally{await rm(root,{recursive:true,force:true});}
+});
+
+test('associated query pages stay separate and appear together in report and AI evidence',()=>{
+ const s=fixture();s.records.push({id:'pair',batchId:'b',provider:'bing',site:'example.com',kind:'seo',date:'2026-09-02',dimension:'snapshot-query-page',keyword:'desktop',page:'https://example.com/zh',clicks:5,impressions:100,position:5});
+ const r=createSeoSnapshot(s,{...options,compare:'none'});assert.equal(r.count,5);assert.equal(r.snapshots.find(x=>x.id==='pair').dimension,'snapshot-query-page');assert.ok(seoHtml(r).includes('页面 URL'));assert.ok(seoHtml(r).includes('https://example.com/zh'));assert.ok(seoAnalysisPrompt(r).includes('queryPageAssociations'));assert.ok(seoAnalysisPrompt(r).includes('不要再概括为无法证明任何词对应页面'));assert.ok(seoCsv(r,'bing').includes('snapshot-query-page'));
+});

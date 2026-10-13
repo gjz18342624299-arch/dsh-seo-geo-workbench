@@ -6,7 +6,7 @@ const CF_API='https://api.cloudflare.com/client/v4';
 const TIMEOUT=45000;
 
 function num(v){if(v===undefined||v===null||v==='')return null;const n=Number(v);return Number.isFinite(n)&&n>=0?n:null;}
-function isoDate(v){
+export function isoDate(v){
   const m=/^\/?Date\((-?\d+)(?:[+-]\d{4})?\)\/?$/.exec(String(v??'')); // WCF 时间戳为毫秒，偏移不改变时间戳本身
   const d=m?new Date(Number(m[1])):new Date(String(v??''));
   return Number.isFinite(d.getTime())?d.toISOString():'';
@@ -18,9 +18,10 @@ async function fetchJson(url,init={},timeoutMs=TIMEOUT){
   return {status:r.status,ok:r.ok,json:j};
 }
 
-async function bingCall(endpoint,siteUrl,apiKey){
+async function bingCall(endpoint,siteUrl,apiKey,params={}){
   const url=`${BING_API}/${endpoint}?siteUrl=${encodeURIComponent(siteUrl)}&apikey=${encodeURIComponent(apiKey)}`;
-  const {status,ok,json:j}=await fetchJson(url,{headers:{'User-Agent':'dsh-seo-geo-workbench'}});
+  const suffix=Object.entries(params).map(([k,v])=>`&${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('');
+  const {status,ok,json:j}=await fetchJson(url+suffix,{headers:{'User-Agent':'dsh-seo-geo-workbench'}});
   if(!ok)throw Error(`Bing ${endpoint} 失败（HTTP ${status}）：${j?.Message||j?.message||'请检查 API Key 与站点权限'}`);
   const list=Array.isArray(j)?j:(j?.d?.results||j?.d||j?.results||[]);
   if(!Array.isArray(list))throw Error(`Bing ${endpoint} 返回结构无法识别`);
@@ -41,14 +42,29 @@ export async function syncBing(store){
   const errors=[queries,pages,daily].filter(x=>!Array.isArray(x)).map(x=>x.error);
   if(errors.length===3)throw Error(errors[0]);
   const records=[];
-  // 关键词与页面统计是近 3 个月的累计快照，日期记为同步当天，重复同步按内容去重。
+  // 保留接口统计日期。接口每周更新，但未提供明确起止，作为区间未知的统计快照。
   if(Array.isArray(queries))for(const q of queries){
     const keyword=String(q.Query??q.query??'').trim();if(!keyword)continue;
-    records.push({kind:'seo',date:today,keyword,page:'',clicks:num(q.Clicks),impressions:num(q.Impressions),position:num(q.AvgImpressionPosition??q.AvgClickPosition),raw:q});
+    records.push({kind:'seo',date:isoDate(q.Date??q.date),syncedAt:today,dimension:'snapshot-query',keyword,page:'',clicks:num(q.Clicks),impressions:num(q.Impressions),position:num(q.AvgImpressionPosition??q.AvgClickPosition),raw:q});
   }
   if(Array.isArray(pages))for(const p of pages){
-    const page=String(p.Page??p.Url??p.url??'').trim();if(!page)continue;
-    records.push({kind:'seo',date:today,keyword:'',page,clicks:num(p.Clicks),impressions:num(p.Impressions),position:num(p.AvgImpressionPosition??p.AvgClickPosition),raw:p});
+    const page=String(p.Query??p.query??p.Page??p.Url??p.url??'').trim();if(!page)continue;
+    records.push({kind:'seo',date:isoDate(p.Date??p.date),syncedAt:today,dimension:'snapshot-page',keyword:'',page,clicks:num(p.Clicks),impressions:num(p.Impressions),position:num(p.AvgImpressionPosition??p.AvgClickPosition),raw:p});
+  }
+  // 页面列表是热门页集合；关联覆盖仅限本次返回的页面，不声称全站完整。
+  const relationPages=[...new Set(records.filter(r=>r.dimension==='snapshot-page').map(r=>r.page))];
+  let relationEmpty=0,relationFailed=0,relationRejected=0;
+  for(let i=0;i<relationPages.length;i+=3){
+    const group=relationPages.slice(i,i+3);
+    const results=await Promise.all(group.map(page=>bingCall('GetPageQueryStats',siteUrl,key,{page}).then(rows=>({page,rows})).catch(e=>({page,error:e.message}))));
+    for(const result of results){
+      if(result.error){relationFailed++;errors.push(result.error);continue;}
+      if(!result.rows.length)relationEmpty++;
+      for(const q of result.rows){
+        const keyword=String(q.Query??q.query??'').trim();if(!keyword){relationRejected++;continue;}
+        records.push({kind:'seo',date:isoDate(q.Date??q.date),syncedAt:today,dimension:'snapshot-query-page',keyword,page:result.page,clicks:num(q.Clicks),impressions:num(q.Impressions),position:num(q.AvgImpressionPosition??q.AvgClickPosition),raw:{...q,associationEndpoint:'GetPageQueryStats',associationPage:result.page}});
+      }
+    }
   }
   // 整站每日序列：有真实日期，可直接进趋势对比。
   if(Array.isArray(daily))for(const d of daily){
@@ -56,7 +72,7 @@ export async function syncBing(store){
     records.push({kind:'seo',date,keyword:'（整站）',page:'',clicks:num(d.Clicks),impressions:num(d.Impressions),position:null,raw:d});
   }
   if(!records.length)throw Error('Bing 返回 0 条数据。站点刚验证时需要几天积累，请稍后再同步。');
-  return store.addSyncBatch({kind:'seo',sourceLabel:'Bing Webmaster API 自动同步',site:siteUrl,records,note:errors.length?`部分接口失败：${errors.join('；')}`:''});
+  return store.addSyncBatch({kind:'seo',sourceLabel:'Bing Webmaster API 自动同步',site:siteUrl,records,note:[errors.length?`部分接口失败：${errors.join('；')}`:'',`关键词收到 ${Array.isArray(queries)?queries.length:0} 行 / 接收 ${records.filter(r=>r.dimension==='snapshot-query').length} 行；页面收到 ${Array.isArray(pages)?pages.length:0} 行 / 接收 ${records.filter(r=>r.dimension==='snapshot-page').length} 行；关联查询 ${relationPages.length} 个页面，接收 ${records.filter(r=>r.dimension==='snapshot-query-page').length} 条词-页面明细，空结果 ${relationEmpty} 页，失败 ${relationFailed} 页，丢弃 ${relationRejected} 行；仅覆盖本次热门页列表，空结果不等于无对应关系；保留原始统计日期，明细统计区间未知，不作单日或三个月累计值`].filter(Boolean).join('；')});
 }
 
 async function cfJson(path,token,init={}){
