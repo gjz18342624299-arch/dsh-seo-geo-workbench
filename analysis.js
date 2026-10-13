@@ -18,6 +18,17 @@ export function weeklyAnalyses(state,count=8,filters={},now=new Date()){
 }
 export function searchProvider(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);const source=r.provider||b?.provider||b?.sourceLabel||r.location||'';return /bing/i.test(source)?'Bing':/google search console|gsc/i.test(source)?'GSC':/cloudflare/i.test(source)?'Cloudflare':'文件导入';}
 export function isUnweeklyRecord(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);return !!(r.dateRange||r.periodFrom||r.periodTo||String(r.dimension||'').startsWith('snapshot')||r.metrics?.periodType==='cumulative'||parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])||(r.kind==='seo'&&searchProvider(r,state)==='Bing'&&b?.api&&r.keyword!=='（整站）'));}
+export function latestKeywordSnapshots(state){
+ const latest=new Map();
+ for(const r of state.records||[]){
+  const batch=(state.imports||[]).find(b=>b.id===r.batchId);
+  if(r.kind!=='seo'||!r.keyword||r.keyword==='（整站）'||r.page||r.invalidatedAt||batch?.revoked||!isUnweeklyRecord(r,state))continue;
+  const source=searchProvider(r,state),key=JSON.stringify([source,r.site||'',r.keyword]);
+  const stamp=String(r.date||'')+'|'+String(r.syncedAt||batch?.createdAt||'');
+  if(!latest.has(key)||stamp>=latest.get(key).stamp)latest.set(key,{r,source,stamp});
+ }
+ return [...latest.values()].map(({r,source})=>({name:r.keyword,source,date:shanghaiDay(r.date)||'未知',impressions:r.impressions??null,clicks:r.clicks??null,position:Number.isFinite(r.position)?r.position:null,ctr:r.impressions>0&&Number.isFinite(r.clicks)?r.clicks/r.impressions:null}));
+}
 // Shared, deterministic analysis. Model judgements stay separate from measured counts.
 export const PRESETS = [
   ['chatgpt','ChatGPT','https://chatgpt.com/'],['deepseek','DeepSeek','https://chat.deepseek.com/'],

@@ -19,6 +19,17 @@ function weeklyAnalyses(state,count=8,filters={},now=new Date()){
 }
 function searchProvider(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);const source=r.provider||b?.provider||b?.sourceLabel||r.location||'';return /bing/i.test(source)?'Bing':/google search console|gsc/i.test(source)?'GSC':/cloudflare/i.test(source)?'Cloudflare':'文件导入';}
 function isUnweeklyRecord(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);return !!(r.dateRange||r.periodFrom||r.periodTo||String(r.dimension||'').startsWith('snapshot')||r.metrics?.periodType==='cumulative'||parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])||(r.kind==='seo'&&searchProvider(r,state)==='Bing'&&b?.api&&r.keyword!=='（整站）'));}
+function latestKeywordSnapshots(state){
+ const latest=new Map();
+ for(const r of state.records||[]){
+  const batch=(state.imports||[]).find(b=>b.id===r.batchId);
+  if(r.kind!=='seo'||!r.keyword||r.keyword==='（整站）'||r.page||r.invalidatedAt||batch?.revoked||!isUnweeklyRecord(r,state))continue;
+  const source=searchProvider(r,state),key=JSON.stringify([source,r.site||'',r.keyword]);
+  const stamp=String(r.date||'')+'|'+String(r.syncedAt||batch?.createdAt||'');
+  if(!latest.has(key)||stamp>=latest.get(key).stamp)latest.set(key,{r,source,stamp});
+ }
+ return [...latest.values()].map(({r,source})=>({name:r.keyword,source,date:shanghaiDay(r.date)||'未知',impressions:r.impressions??null,clicks:r.clicks??null,position:Number.isFinite(r.position)?r.position:null,ctr:r.impressions>0&&Number.isFinite(r.clicks)?r.clicks/r.impressions:null}));
+}
 // Shared, deterministic analysis. Model judgements stay separate from measured counts.
 const PRESETS = [
   ['chatgpt','ChatGPT','https://chatgpt.com/'],['deepseek','DeepSeek','https://chat.deepseek.com/'],
@@ -982,7 +993,7 @@ function createApplication(React,logic){
   const scrollSetup=ref=>ref.current?.scrollIntoView({behavior:'smooth',block:'start'});
   useEffect(()=>{mainRef.current?.scrollTo({top:0});},[view]);
   const [boardRange,setBoardRange]=useState('30'),[boardPlatform,setBoardPlatform]=useState(''),[boardGroup,setBoardGroup]=useState('');
-  const [boardMode,setBoardMode]=useState('geo'),[boardWeeks,setBoardWeeks]=useState('8'),[selectedWeek,setSelectedWeek]=useState(''),[keywordFilter,setKeywordFilter]=useState('all'),[keywordLimit,setKeywordLimit]=useState(30),[newBrandName,setNewBrandName]=useState('');
+  const [boardMode,setBoardMode]=useState('geo'),[boardWeeks,setBoardWeeks]=useState('8'),[selectedWeek,setSelectedWeek]=useState(''),[keywordScope,setKeywordScope]=useState('latest'),[keywordFilter,setKeywordFilter]=useState('all'),[keywordLimit,setKeywordLimit]=useState(30),[newBrandName,setNewBrandName]=useState('');
   const [actOpen,setActOpen]=useState(false),[actDraft,setActDraft]=useState({type:'帖子',channel:'',url:'',title:'',note:'',actionKey:''});
   const [showDemand,setShowDemand]=useState(false),[reuseId,setReuseId]=useState('');const reuseInit=useRef(false);
   useEffect(()=>{setReportPreview('');},[JSON.stringify(filter),JSON.stringify(selBatches)]);
@@ -1301,7 +1312,7 @@ function createApplication(React,logic){
    const groups=[...new Set(state.records.filter(r=>r.kind==='geo').map(r=>r.group).filter(Boolean))];
    const aiRefs=aTraffic.seoBoard.aiReferrers||[],aiTotal=aiRefs.reduce((t,x)=>t+x.visits,0);
    const unknownPeriods=state.records.filter(r=>['seo','traffic'].includes(r.kind)&&(!r.date||isUnweeklyRecord(r,state))).length;
-   const allKeys=(aTraffic.seoAgg.keywords||[]).slice().sort((a,b)=>(a.position??Infinity)-(b.position??Infinity)||b.impressions-a.impressions);
+   const allKeys=(keywordScope==='latest'?latestKeywordSnapshots(state):(aTraffic.seoAgg.keywords||[]).filter(k=>k.name!=='（整站）').map(k=>({...k,source:'所选周',date:chosenWeek.name}))).slice().sort((a,b)=>(a.position??Infinity)-(b.position??Infinity)||b.impressions-a.impressions);
    const kw=allKeys.filter(k=>keywordFilter==='all'||keywordFilter==='top'&&k.position!==null&&k.position<=3||keywordFilter==='near'&&k.position>=4&&k.position<=15||keywordFilter==='later'&&k.position>=16||keywordFilter==='low'&&k.impressions>=100&&k.ctr!==null&&k.ctr<0.02);
    const detailIds=entity=>aB.geo.filter(r=>entity==='none'?!(state.brand.aliases||[]).some(al=>containsBrand(r.answer,al))&&!['ours','mixed','rival'].includes(r.entityEffective):entity==='unknown'?(!r.entityEffective||r.entityEffective==='unknown')&&(state.brand.aliases||[]).some(al=>containsBrand(r.answer,al)):r.entityEffective===entity).map(r=>r.id);
    const entitySegments=[['ours','明确我方','#526be7'],['rival','同名其他主体','#e9a04a'],['mixed','混合或混淆','#9476d5'],['unknown','提及但待判定','#a9b1c1'],['none','未提及','#e8ecf3']];
@@ -1334,9 +1345,9 @@ function createApplication(React,logic){
      h('div',{className:'sg-cols sg-g11'},
       card('访问来源渠道','占比以可识别的渠道访问合计为分母',aTraffic.seoBoard.channels.length?hbars(aTraffic.seoBoard.channels.map(x=>({name:x.name,value:x.visits})),{fmtv:v=>v+' 次'}):empty('本周暂无来源明细。')),
       card('来自 AI 网站的官网访问','网站统计记录的来源访问次数；不等于引用次数或独立访客数',aiRefs.length?table(['AI 平台','原始来源','访问次数','占渠道访问'],aiRefs.map(x=>[x.platform,x.name,x.visits,fmt(x.share)])):empty('本周没有已识别的 AI 网站来源访问记录。'),h('p',{className:'sg-note'},'仅按已确认的平台域名归类。其他来源保留在渠道列表；来源缺失的访问无法归因。数据以导入／同步记录为准。'))),
-     card('搜索词表现','默认展示全部关键词，按平均排名排序；筛选仅用于发现优化候选',h('div',{className:'sg-filters'},select(keywordFilter,v=>{setKeywordFilter(v);setKeywordLimit(30);},[['all','全部关键词'],['top','前 3 名'],['near','第 4–15 名'],['later','第 16 名及以后'],['low','曝光 ≥100、CTR <2%']],'搜索词筛选')),
-      kw.length?table(['搜索词','平均排名','曝光','点击','CTR'],kw.slice(0,keywordLimit).map(k=>[k.name,k.position===null?'—':k.position.toFixed(1),k.impressions,k.clicks,fmt(k.ctr)])):empty('本周没有符合条件的搜索词。'),h('p',{className:'sg-note'},'数据可能来自 Bing、GSC 或文件导入，来源见证据。4–15 只是可选排名区间；CTR 缺失不计入低点击率候选。共 '+kw.length+' 个词。'),kw.length>keywordLimit&&button('显示更多关键词',()=>setKeywordLimit(keywordLimit+30))),
-     card('累计快照与区间汇总','这些数据不能拆成每周值，按原始数据范围查看',h('p',{className:'sg-note'},'Bing 累计快照的日期是同步日，不是该周曝光；本表独立展示，不计入上面的周指标。'),table(['来源','搜索词 / 页面','记录日期 / 区间','曝光','点击','平均排名'],state.records.filter(r=>r.kind==='seo'&&isUnweeklyRecord(r,state)&&!r.invalidatedAt&&!state.imports.find(b=>b.id===r.batchId)?.revoked).slice().reverse().slice(0,100).map(r=>[searchProvider(r,state),r.keyword||r.page,r.periodFrom?r.periodFrom+' 至 '+r.periodTo:parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])?r.raw?.['日期范围']||r.raw?.['Date range']:shanghaiDay(r.date)+'（同步日）',r.impressions??'—',r.clicks??'—',r.position??'—']))),
+     card('搜索词表现',keywordScope==='latest'?'每个搜索词保留最新统计快照；统计区间未知，不计入周指标':'所选周内的搜索词明细',h('div',{className:'sg-filters'},select(keywordScope,v=>{setKeywordScope(v);setKeywordFilter('all');setKeywordLimit(30);},[['latest','最新统计快照'],['week','所选周']],'搜索词数据范围'),select(keywordFilter,v=>{setKeywordFilter(v);setKeywordLimit(30);},[['all','全部关键词'],['top','前 3 名'],['near','第 4–15 名'],['later','第 16 名及以后'],['low','曝光 ≥100、CTR <2%']],'搜索词筛选')),
+      kw.length?table(['搜索词','来源','统计日期','平均排名','曝光','点击','CTR'],kw.slice(0,keywordLimit).map(k=>[k.name,k.source,k.date,k.position===null?'—':k.position.toFixed(1),k.impressions??'—',k.clicks??'—',fmt(k.ctr)])):empty(allKeys.length?'当前排名筛选无匹配搜索词；可切换为全部关键词。':keywordScope==='week'?'所选周暂无搜索词明细；可切换为最新统计快照。':'尚无搜索词统计快照，请同步 Bing 或导入关键词数据。'),h('p',{className:'sg-note'},'数据可能来自 Bing、GSC 或文件导入，来源见证据。4–15 只是可选排名区间；CTR 缺失不计入低点击率候选。共 '+kw.length+' 个词。'),kw.length>keywordLimit&&button('显示更多关键词',()=>setKeywordLimit(keywordLimit+30))),
+     card('累计快照与区间汇总','这些数据不能拆成每周值，按原始数据范围查看',h('p',{className:'sg-note'},'Bing 快照保留接口统计日期，实际区间起止未知；本表独立展示，不计入周指标。'),table(['来源','搜索词 / 页面','记录日期 / 区间','曝光','点击','平均排名'],state.records.filter(r=>r.kind==='seo'&&isUnweeklyRecord(r,state)&&!r.invalidatedAt&&!state.imports.find(b=>b.id===r.batchId)?.revoked).slice().reverse().slice(0,100).map(r=>[searchProvider(r,state),r.keyword||r.page,r.periodFrom?r.periodFrom+' 至 '+r.periodTo:parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])?r.raw?.['日期范围']||r.raw?.['Date range']:(shanghaiDay(r.date)||'未知')+'（统计日期，区间未知）',r.impressions??'—',r.clicks??'—',r.position??'—']))),
      card('搜索落地页表现','本周搜索侧页面数据',aTraffic.seoAgg.pages.length?table(['页面','曝光','点击','CTR','平均排名'],aTraffic.seoAgg.pages.map(p=>[p.name,p.impressions,p.clicks,fmt(p.ctr),p.position===null?'—':p.position.toFixed(1)])):empty('本周暂无搜索落地页数据。'))));
   }
   if(view==='collect'){
@@ -1598,7 +1609,7 @@ function createApplication(React,logic){
    h('aside',{className:'sg-side'},
     h('div',{className:'sg-brand'},h('b',null,'SEO/GEO 工作台'),h('small',null,'DSH Desktop')),
     h('nav',{className:'sg-nav','aria-label':'工作台导航'},tabs.map(([id,t])=>h('button',{key:id,'aria-label':t,'aria-current':view===id?'page':null,onClick:()=>go(id)},icon(id),h('span',null,t),id==='action'&&badge?h('span',{className:'sg-badge'},badge):null))),
-    h('div',{className:'sg-side-foot'},h('span',null,'v0.16.3'),h('button',{type:'button',onClick:()=>{if(onClose)onClose();else runtime?.layout?.selectPanel(null);}},'收起工作台'))),
+    h('div',{className:'sg-side-foot'},h('span',null,'v0.16.4'),h('button',{type:'button',onClick:()=>{if(onClose)onClose();else runtime?.layout?.selectPanel(null);}},'收起工作台'))),
    h('main',{className:'sg-main',ref:mainRef},
     h('div',{className:'sg-filters sg-brand-toolbar','aria-label':'品牌管理'},h('strong',null,'当前品牌'),select(state.activeBrandId||'legacy',chooseBrand,(state.brands||[{id:'legacy',name:state.brand.name||'未配置品牌'}]).map(b=>[b.id,b.name]),'当前品牌'),button('管理品牌',()=>go('settings'),false,busy||jobRunning),h('details',null,h('summary',null,'新增品牌'),h('div',{className:'sg-row'},input(newBrandName,setNewBrandName,'新品牌名称'),button('创建并配置',addBrand,true,busy||jobRunning||!newBrandName.trim())))),
     message&&h('div',{className:'sg-alert',role:'status'},message),

@@ -20,3 +20,12 @@ test('AI referrer classification is domain based and rejects misleading llm or .
  for(const domain of ['llm.ustc.edu.cn','clawith.ai','notchatgpt.com','chatgpt.com.bad.example','https://bad.example/chatgpt.com'])assert.equal(classifyAiReferrer(domain),null,domain);
  assert.equal(classifyAiReferrer('https://chatgpt.com/a'),'ChatGPT');assert.equal(classifyAiReferrer('www.doubao.com'),'豆包');
 });
+
+test('latest keywords keep snapshot dates, discard revoked and page associations without adding to weeks',async()=>{
+ const {latestKeywordSnapshots}=await import('../analysis.js');const s=exampleState();s.imports=[{id:'bing',api:true,provider:'bing'},{id:'revoked',revoked:true}];s.records=[
+ {id:'old',batchId:'bing',kind:'seo',keyword:'desktop',date:'2026-09-25',dimension:'snapshot-query',clicks:1,impressions:100,position:8},
+ {id:'new',batchId:'bing',kind:'seo',keyword:'desktop',date:'2026-10-09',dimension:'snapshot-query',clicks:3,impressions:120,position:5},
+ {id:'pair',batchId:'bing',kind:'seo',keyword:'desktop',page:'https://example.com/',date:'2026-10-09',dimension:'snapshot-query-page',clicks:2,impressions:80,position:6},
+ {id:'bad',batchId:'revoked',kind:'seo',keyword:'revoked',date:'2026-10-09',dimension:'snapshot-query'}];
+ const keys=latestKeywordSnapshots(s);assert.equal(keys.length,1);assert.equal(keys[0].date,'2026-10-09');assert.equal(keys[0].impressions,120);assert.equal(keys[0].ctr,0.025);assert.equal(weeklyAnalyses(s,2,{},new Date('2026-10-13')).reduce((n,w)=>n+w.a.seo.length,0),0);
+});
