@@ -1,3 +1,11 @@
+export function bingWeeklyRankReference(state,keyword,from,to,site=''){
+ const active=new Map((state.imports||[]).filter(b=>!b.revoked).map(b=>[b.id,b]));
+ const host=v=>{try{return new URL(String(v).includes('://')?v:'https://'+v).hostname.replace(/^www\./,'');}catch{return String(v||'');}};
+ const rows=(state.records||[]).filter(r=>{const b=active.get(r.batchId),day=shanghaiDay(r.date);return r.kind==='seo'&&r.keyword===keyword&&!r.page&&!r.invalidatedAt&&b&&searchProvider(r,state)==='Bing'&&r.dimension==='snapshot-query'&&Number.isFinite(r.position)&&r.position>0&&day>=from&&day<=to&&(!site||host(r.site||b.site)===host(site));});
+ const sites=new Set(rows.map(r=>host(r.site||active.get(r.batchId)?.site)));if(sites.size>1)return null;
+ rows.sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.syncedAt||active.get(b.batchId)?.createdAt||'').localeCompare(String(a.syncedAt||active.get(a.batchId)?.createdAt||'')));
+ const r=rows[0];return r?{position:r.position,date:shanghaiDay(r.date),basis:'Bing API 排名参考（统计区间未确认）',site:host(r.site||active.get(r.batchId)?.site)}:null;
+}
 export function classifyAiReferrer(value){
  let host=String(value||'').trim().toLowerCase();try{host=new URL(host.includes('://')?host:'https://'+host).hostname;}catch{return null;}
  const platforms=[['ChatGPT',['chatgpt.com','chat.openai.com']],['豆包',['doubao.com']],['Kimi',['kimi.com','kimi.moonshot.cn']],['Claude',['claude.ai']],['Gemini',['gemini.google.com']],['Perplexity',['perplexity.ai']],['Copilot',['copilot.microsoft.com']],['DeepSeek',['chat.deepseek.com']],['Grok',['grok.com']],['元宝',['yuanbao.tencent.com']],['通义',['qianwen.com','tongyi.aliyun.com']]];
@@ -22,7 +30,7 @@ export function weeklyAnalyses(state,count=8,filters={},now=new Date()){
  return {id:from,date:from,from,to,current:from===current,name:from+' 至 '+to,a,total:a.geo.length,ours:a.entity.ours,cited:a.cited,rival:a.entity.rival};});
 }
 export function searchProvider(r,state){const b=(state.imports||[]).find(b=>b.id===r.batchId);const source=r.provider||b?.provider||b?.sourceLabel||r.location||'';return /bing/i.test(source)?'Bing':/google search console|gsc/i.test(source)?'GSC':/cloudflare/i.test(source)?'Cloudflare':'文件导入';}
-export function isUnweeklyRecord(r,state){r=normalizeSearchRecord(r);const b=(state.imports||[]).find(b=>b.id===r.batchId);return !!(r.dateRange||r.periodFrom||r.periodTo||String(r.dimension||'').startsWith('snapshot')||r.metrics?.periodType==='cumulative'||parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])||(r.kind==='seo'&&searchProvider(r,state)==='Bing'&&b?.api&&r.keyword!=='（整站）'&&r.dimension!=='query-daily'));}
+export function isUnweeklyRecord(r,state){r=normalizeSearchRecord(r);const b=(state.imports||[]).find(b=>b.id===r.batchId);return !!((r.kind==='seo'&&!r.date&&(r.keyword||r.page))||r.dateRange||r.periodFrom||r.periodTo||String(r.dimension||'').startsWith('snapshot')||r.metrics?.periodType==='cumulative'||parseDateRange(r.raw?.['日期范围']||r.raw?.['Date range'])||(r.kind==='seo'&&searchProvider(r,state)==='Bing'&&b?.api&&r.keyword!=='（整站）'&&r.dimension!=='query-daily'));}
 export function latestKeywordSnapshots(state){
  const latest=new Map(),rows=[];
  const normalizeSite=value=>{let site=String(value||'').trim().toLowerCase();if(!site)return '';try{return new URL(site.includes('://')?site:'https://'+site).hostname.replace(/^www\./,'');}catch{return site;}};
@@ -41,7 +49,7 @@ export function latestKeywordSnapshots(state){
   const key=JSON.stringify([source,site,r.keyword]),stamp=String(r.date||'')+'|'+String(r.syncedAt||batch?.createdAt||'');
   if(!latest.has(key)||stamp>=latest.get(key).stamp)latest.set(key,{r,source,site,stamp});
  }
- return [...latest.values()].map(({r,source,site})=>({name:r.keyword,source,site:site||'未知',date:shanghaiDay(r.date)||'未知',impressions:r.impressions??null,clicks:r.clicks??null,position:Number.isFinite(r.position)?r.position:null,ctr:r.impressions>0&&Number.isFinite(r.clicks)?r.clicks/r.impressions:null}));
+ return [...latest.values()].map(({r,source,site})=>({name:r.keyword,source,site:site||'未知',date:r.periodFrom&&r.periodTo?r.periodFrom+' 至 '+r.periodTo:shanghaiDay(r.date)||'未知',impressions:r.impressions??null,clicks:r.clicks??null,position:Number.isFinite(r.position)?r.position:null,ctr:r.impressions>0&&Number.isFinite(r.clicks)?r.clicks/r.impressions:null}));
 }
 // Shared, deterministic analysis. Model judgements stay separate from measured counts.
 export const PRESETS = [
